@@ -1,10 +1,34 @@
-import HealthDataViewer from './components/HealthDataViewer';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Inicio from './pages/Inicio';
+import Ingreso from './pages/Ingreso';
+import Registro from './pages/Registro';
+import ElegirUsuario from './pages/ElegirUsuario';
+import Panel from './pages/Panel';
+import Perfil from './pages/Perfil';
+import Sala from './pages/Sala';
+import Ayuda from './pages/Ayuda';
+import NoEncontrada from './pages/NoEncontrada';
 
 function App() {
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
-      <HealthDataViewer />
-    </div>
+    <BrowserRouter>
+      <Routes>
+        {/* Rutas públicas */}
+        <Route path="/" element={<Inicio />} />
+        <Route path="/ingreso" element={<Ingreso />} />
+        <Route path="/registro" element={<Registro />} />
+        <Route path="/nombre-de-usuario" element={<ElegirUsuario />} />
+
+        {/* Rutas privadas */}
+        <Route path="/panel" element={<Panel />} />
+        <Route path="/perfil" element={<Perfil />} />
+        <Route path="/salas/:id" element={<Sala />} />
+
+        {/* Rutas de apoyo */}
+        <Route path="/ayuda" element={<Ayuda />} />
+        <Route path="*" element={<NoEncontrada />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
