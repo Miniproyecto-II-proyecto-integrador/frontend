@@ -46,7 +46,10 @@ export function HealthDataViewer() {
 
   if (loading) {
     return (
-      <div className="w-full max-w-md mx-auto p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm">
+      <div
+        aria-live="polite"
+        className="w-full max-w-md mx-auto p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm"
+      >
         <div className="flex items-center gap-3 mb-4">
           <div className="size-5 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
           <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
@@ -63,7 +66,10 @@ export function HealthDataViewer() {
 
   if (error) {
     return (
-      <div className="w-full max-w-md mx-auto p-6 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/80 shadow-sm">
+      <div
+        aria-live="assertive"
+        className="w-full max-w-md mx-auto p-6 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/80 shadow-sm"
+      >
         <div className="flex flex-col gap-4">
           <div>
             <h3 className="text-base font-semibold text-red-800 dark:text-red-300">
@@ -76,7 +82,7 @@ export function HealthDataViewer() {
           <button
             type="button"
             onClick={fetchHealthData}
-            className="self-start inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 active:bg-red-800 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-900"
+            className="self-center inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 active:bg-red-800 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-900"
           >
             Reintentar
           </button>
@@ -86,7 +92,10 @@ export function HealthDataViewer() {
   }
 
   return (
-    <div className="w-full max-w-md mx-auto p-6 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800/70 shadow-md">
+    <div
+      aria-live="polite"
+      className="w-full max-w-md mx-auto p-6 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800/70 shadow-md"
+    >
       <div className="flex items-center justify-between mb-3">
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300">
           <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
