@@ -30,7 +30,6 @@ Siga estos pasos para ejecutar el servidor de desarrollo de forma local:
 1. **Clonar el repositorio y acceder al directorio del frontend:**
    ```bash
    git clone https://github.com/Miniproyecto-II-proyecto-integrador/frontend.git
-   cd mini2/frontend
    ```
 
 2. **Configurar las variables de entorno:**
