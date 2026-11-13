@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { auth } from '../auth/firebase';
+import { useAuth } from '../auth/AuthContext';
 import { ApiError, checkUsername, createProfile } from '../auth/users';
 import Button from '../components/Button';
 import Spinner from '../components/Spinner';
@@ -12,10 +13,13 @@ import TextField from '../components/TextField';
 type Fields = { nombres: string; apellidos: string; username: string; avatar: string; correo: string; contrasena: string };
 const initial: Fields = { nombres: '', apellidos: '', username: '', avatar: 'avatar-1', correo: '', contrasena: '' };
 export default function Registro() {
-  const [form, setForm] = useState(initial);
+  const { user } = useAuth();
+  const location = useLocation();
+  const completingProfile = Boolean((location.state as { completarPerfil?: boolean } | null)?.completarPerfil && user);
+  const [form, setForm] = useState<Fields>(() => ({ ...initial, correo: completingProfile ? user?.email ?? '' : '' }));
   const [errors, setErrors] = useState<Partial<Record<keyof Fields, string>>>({});
   const [general, setGeneral] = useState('');
-  const [pendingProfile, setPendingProfile] = useState(false);
+  const [pendingProfile, setPendingProfile] = useState(completingProfile);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
@@ -30,7 +34,7 @@ export default function Registro() {
     else if (form.apellidos.trim().length > 60) next.apellidos = 'Usa hasta 60 caracteres.';
     if (!/^[A-Za-z0-9_]{3,20}$/.test(form.username.trim())) next.username = 'Usa de 3 a 20 caracteres: letras, números o guion bajo (_), sin espacios.';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.correo.trim())) next.correo = 'Escribe un correo válido.';
-    if (form.contrasena.length < 6) next.contrasena = 'Usa al menos 6 caracteres.';
+    if (!pendingProfile && form.contrasena.length < 6) next.contrasena = 'Usa al menos 6 caracteres.';
     setErrors(next); setGeneral('');
     const first = Object.keys(next)[0];
     if (first) { document.getElementById(`registro-${first}`)?.focus(); return; }
@@ -40,6 +44,7 @@ export default function Registro() {
       const availability = await checkUsername(form.username);
       if (!availability.disponible) { setErrors({ username: 'Ese nombre de usuario ya está en uso. Prueba con otro.' }); document.getElementById('registro-username')?.focus(); return; }
       if (!pendingProfile) { await createUserWithEmailAndPassword(auth, form.correo.trim(), form.contrasena); setPendingProfile(true); }
+      else if (!auth.currentUser || auth.currentUser.email?.toLowerCase() !== form.correo.trim().toLowerCase()) throw new Error('La sesión cambió. Inicia sesión de nuevo para completar el perfil.');
       await createProfile({ nombres: form.nombres.trim(), apellidos: form.apellidos.trim(), username: form.username.trim(), avatar: form.avatar });
       setSuccess(true); window.setTimeout(() => navigate('/panel', { replace: true }), 800);
     } catch (error) {

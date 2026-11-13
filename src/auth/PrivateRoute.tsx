@@ -26,6 +26,6 @@ export default function PrivateRoute() {
   if (!user) return <Navigate to="/ingreso" replace state={{ from: location.pathname + location.search + location.hash }} />;
   if (status === 'error') return <div className="p-8"><p role="alert">No pudimos verificar tu perfil.</p><button type="button" className="mt-3 underline focus-visible:outline-2" onClick={() => setAttempt((value) => value + 1)}>Reintentar</button></div>;
   if (status === 'missing' && user.providerData.some((provider) => provider.providerId === 'google.com')) return <Navigate to="/nombre-de-usuario" replace state={{ from: location.pathname + location.search + location.hash }} />;
-  if (status === 'missing') return <div role="alert" className="p-8">Tu cuenta aún no tiene perfil. Contacta al equipo para completar tu registro.</div>;
+  if (status === 'missing') return <Navigate to="/registro" replace state={{ completarPerfil: true }} />;
   return <Outlet />;
 }
