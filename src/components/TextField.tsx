@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import type { ComponentPropsWithRef } from 'react';
 
 type TextFieldProps = ComponentPropsWithRef<'input'> & {
@@ -13,10 +13,12 @@ export default function TextField({
   error,
   id,
   className = '',
+  type = 'text',
   'aria-describedby': describedBy,
   ...props
 }: TextFieldProps) {
   const generatedId = useId();
+  const [showPassword, setShowPassword] = useState(false);
   const inputId = id ?? generatedId;
   const helpId = helpText ? `${inputId}-help` : undefined;
   const errorId = error ? `${inputId}-error` : undefined;
@@ -30,12 +32,14 @@ export default function TextField({
       <div className="relative">
         <input
           {...props}
+          type={type === 'password' && showPassword ? 'text' : type}
           id={inputId}
           aria-invalid={error ? true : undefined}
           aria-describedby={descriptions}
-          className={`w-full rounded-lg border bg-[#161f30] px-3.5 py-2.5 text-sm text-[#f8fafc] placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 disabled:cursor-not-allowed disabled:opacity-60 ${error ? 'border-red-400 pr-10' : 'border-[#1e293b]'} ${className}`}
+          className={`w-full rounded-md border bg-[#03111f] px-3.5 py-3 text-sm text-[#f8fafc] placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 disabled:cursor-not-allowed disabled:opacity-60 ${error ? 'border-red-400 pr-10' : 'border-[#344458]'} ${type === 'password' ? 'pr-14' : ''} ${className}`}
         />
-        {error && (
+        {type === 'password' && <button type="button" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-pressed={showPassword} disabled={props.disabled} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-blue-200 underline focus-visible:outline-2 focus-visible:outline-offset-2">{showPassword ? 'Ocultar' : 'Mostrar'}</button>}
+        {error && type !== 'password' && (
           <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-bold text-red-400">
             !
           </span>

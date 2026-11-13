@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { auth } from '../auth/firebase';
+import { auth, googleProvider } from '../auth/firebase';
 import { useAuth } from '../auth/AuthContext';
 import { ApiError, checkUsername, createProfile } from '../auth/users';
 import Button from '../components/Button';
@@ -25,6 +25,13 @@ export default function Registro() {
   const navigate = useNavigate();
   useEffect(() => { document.title = 'Registro | Study Room'; }, []);
   function change(field: keyof Fields, value: string) { setForm((old) => ({ ...old, [field]: value })); setErrors((old) => ({ ...old, [field]: undefined })); }
+  async function google() {
+    if (!auth) { setGeneral('El ingreso con Google no está configurado.'); return; }
+    setLoading(true); setGeneral('');
+    try { await signInWithPopup(auth, googleProvider); navigate('/panel', { replace: true }); }
+    catch { setGeneral('No se pudo completar el ingreso con Google. Inténtalo de nuevo.'); }
+    finally { setLoading(false); }
+  }
   async function submit(event: FormEvent) {
     event.preventDefault();
     const next: typeof errors = {};
@@ -54,5 +61,14 @@ export default function Registro() {
       else setGeneral(error instanceof Error ? error.message : 'No pudimos crear tu cuenta. Inténtalo de nuevo.');
     } finally { setLoading(false); }
   }
-  return <section className="mx-auto w-full max-w-xl px-5 py-12"><div className="rounded-2xl border border-[#1e293b] bg-[#111827] p-6 sm:p-8"><h1 className="text-2xl font-bold text-white">Crear cuenta</h1><p className="mt-2 text-sm text-slate-300">Únete a Study Room.</p><form onSubmit={submit} noValidate className="mt-6 space-y-4">{general && <StatusMessage type="error">{general}</StatusMessage>}{success && <StatusMessage type="success">Tu cuenta se creó correctamente.</StatusMessage>}<div className="grid gap-4 sm:grid-cols-2">{(['nombres', 'apellidos'] as const).map((key) => <TextField key={key} id={`registro-${key}`} label={key === 'nombres' ? 'Nombres' : 'Apellidos'} placeholder={key === 'nombres' ? 'Ej. Ana María' : 'Ej. Pérez Gómez'} value={form[key]} onChange={(event) => change(key, event.target.value)} error={errors[key]} disabled={loading || success} />)}</div><TextField id="registro-username" label="Nombre de usuario" placeholder="Ej. ana_perez" helpText="De 3 a 20 letras, números o guion bajo (_), sin espacios." value={form.username} onChange={(event) => change('username', event.target.value)} error={errors.username} disabled={loading || success} /><fieldset disabled={loading || success}><legend className="mb-2 text-sm font-medium text-slate-300">Elige un avatar</legend><div className="flex gap-3">{['avatar-1', 'avatar-2', 'avatar-3'].map((avatar, index) => <label key={avatar} className="flex items-center gap-2 rounded-lg border border-slate-600 p-2"><input type="radio" name="avatar" value={avatar} checked={form.avatar === avatar} onChange={() => change('avatar', avatar)} /> Avatar {index + 1}</label>)}</div></fieldset><TextField id="registro-correo" label="Correo electrónico" type="email" autoComplete="email" placeholder="ejemplo@correo.com" value={form.correo} onChange={(event) => change('correo', event.target.value)} error={errors.correo} disabled={loading || success || pendingProfile} /><TextField id="registro-contrasena" label="Contraseña" type="password" autoComplete="new-password" placeholder="Al menos 6 caracteres" helpText="La contraseña debe tener al menos 6 caracteres." value={form.contrasena} onChange={(event) => change('contrasena', event.target.value)} error={errors.contrasena} disabled={loading || success || pendingProfile} /><Button type="submit" className="w-full" disabled={loading || success}>{loading && <Spinner />}{loading ? 'Creando tu cuenta…' : pendingProfile ? 'Reintentar' : 'Crear cuenta'}</Button><p className="text-center text-sm text-slate-300">¿Ya tienes cuenta? <Link to="/ingreso" className="text-blue-300 underline">Inicia sesión</Link></p></form></div></section>;
+  return <section className="font-serif mx-auto w-full max-w-2xl px-4 py-8 sm:py-12"><div className="rounded-lg bg-[#0d1c2d] p-6 shadow-xl sm:p-10">
+    <Link to="/" className="text-sm text-blue-200 hover:underline focus-visible:outline-2">← Volver al inicio</Link>
+    <h1 className="mt-7 text-3xl font-bold tracking-tight text-[#dce8ff]">Crear tu cuenta</h1><p className="mt-2 text-sm leading-6 text-slate-300">Únete a Study Room y colabora en tiempo real en salas de estudio y proyectos en equipo.</p>
+    <div className="mt-6 space-y-5">{general && <StatusMessage type="error">{general}</StatusMessage>}{success && <StatusMessage type="success">Tu cuenta se creó correctamente.</StatusMessage>}
+    {!pendingProfile && <><Button variant="secondary" className="w-full !border-0 !bg-[#152537] !py-3" onClick={google} disabled={loading || success}><span aria-hidden="true" className="font-bold text-blue-300">G</span> {loading ? 'Conectando…' : 'Continuar con Google'}</Button><div className="flex items-center gap-3 text-xs text-slate-300"><span className="h-px flex-1 bg-slate-700" />o regístrate con tu correo<span className="h-px flex-1 bg-slate-700" /></div></>}
+    <form onSubmit={submit} noValidate className="space-y-4"><div className="grid gap-4 sm:grid-cols-2">{(['nombres', 'apellidos'] as const).map((key) => <TextField key={key} id={`registro-${key}`} label={key === 'nombres' ? 'Nombres' : 'Apellidos'} placeholder={key === 'nombres' ? 'Ej. Mateo' : 'Ej. Salazar'} value={form[key]} onChange={(event) => change(key, event.target.value)} error={errors[key]} disabled={loading || success} />)}</div>
+    <div className="grid gap-4 sm:grid-cols-[11rem_1fr]"><fieldset disabled={loading || success}><legend className="mb-2 text-sm font-medium text-slate-300">Foto o avatar</legend><div className="flex flex-wrap gap-2">{['avatar-1', 'avatar-2', 'avatar-3'].map((avatar, index) => <label key={avatar} className={`flex size-11 items-center justify-center rounded-lg border text-xs ${form.avatar === avatar ? 'border-blue-300 bg-blue-600 text-white' : 'border-slate-600 bg-[#03111f] text-slate-300'}`}><input className="sr-only peer" aria-label={`Avatar ${index + 1}`} type="radio" name="avatar" value={avatar} checked={form.avatar === avatar} onChange={() => change('avatar', avatar)} /><span className="rounded-sm peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-blue-300">{index + 1}</span></label>)}</div></fieldset><TextField id="registro-username" label="Nombre de usuario" placeholder="mateo_dev" helpText="De 3 a 20 letras, números o guion bajo (_), sin espacios." value={form.username} onChange={(event) => change('username', event.target.value)} error={errors.username} disabled={loading || success} /></div>
+    <TextField id="registro-correo" label="Correo electrónico institucional o personal" type="email" autoComplete="email" placeholder="mateo.salazar@universidad.edu" value={form.correo} onChange={(event) => change('correo', event.target.value)} error={errors.correo} disabled={loading || success || pendingProfile} />
+    <TextField id="registro-contrasena" label="Contraseña" type="password" autoComplete="new-password" placeholder="Escribe tu contraseña" helpText="Tu contraseña debe tener al menos 6 caracteres." value={form.contrasena} onChange={(event) => change('contrasena', event.target.value)} error={errors.contrasena} disabled={loading || success || pendingProfile} />
+    <Button type="submit" className="w-full !py-3" disabled={loading || success}>{loading && <Spinner />}{loading ? 'Creando tu cuenta…' : pendingProfile ? 'Reintentar' : 'Registrarse en Study Room'}</Button><p className="pt-3 text-center text-sm text-slate-300">¿Ya tienes cuenta? <Link to="/ingreso" className="text-blue-200 underline">Iniciar sesión</Link></p></form></div></div></section>;
 }
