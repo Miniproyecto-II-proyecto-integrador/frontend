@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Inicio from './pages/Inicio';
 import Ingreso from './pages/Ingreso';
@@ -26,6 +26,7 @@ function App() {
           {/* Rutas privadas */}
           <Route element={<PrivateRoute />}>
             <Route path="/panel" element={<Panel />} />
+            <Route path="/dashboard" element={<Navigate to="/panel" replace />} />
             <Route path="/perfil" element={<Perfil />} />
             <Route path="/salas/:id" element={<Sala />} />
           </Route>
