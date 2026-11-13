@@ -1,8 +1,18 @@
 import { Outlet, Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { useEffect, useState } from 'react';
+import { getProfile } from '../auth/users';
+import Avatar from './Avatar';
 
 export default function Layout() {
   const { user, signOut } = useAuth();
+  const [profileAvatar, setProfileAvatar] = useState<{ uid: string; avatar: string } | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    getProfile().then((profile) => { if (active) setProfileAvatar({ uid: user.uid, avatar: profile.avatar }); }).catch(() => { if (active) setProfileAvatar(null); });
+    return () => { active = false; };
+  }, [user]);
   const navigate = useNavigate();
   const location = useLocation();
   const authPage = ['/ingreso', '/registro', '/nombre-de-usuario'].includes(location.pathname);
@@ -75,20 +85,7 @@ export default function Layout() {
             aria-label="Perfil de usuario"
             className="size-8 rounded-full bg-indigo-200/90 text-slate-900 flex items-center justify-center hover:bg-indigo-100 transition-colors"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="size-4"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="8" r="4" />
-              <path d="M6 20v-1a6 6 0 0 1 12 0v1" />
-            </svg>
+            <Avatar value={(profileAvatar?.uid === user?.uid && profileAvatar?.avatar) || user?.photoURL} className="size-8" />
           </Link>
         </div>
       </header>}
