@@ -1,6 +1,9 @@
-import { Outlet, Link, NavLink } from 'react-router-dom';
+import { Outlet, Link, NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
 
 export default function Layout() {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen w-full bg-[#070b14] text-slate-200 flex flex-col font-sans">
       {/* Encabezado / Navegación */}
@@ -52,7 +55,7 @@ export default function Layout() {
         </div>
 
         <div className="flex items-center gap-5 text-sm">
-          <Link
+          {user ? <button type="button" onClick={async () => { await signOut(); navigate('/ingreso', { replace: true }); }} className="text-slate-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2">Cerrar sesión</button> : <><Link
             to="/ingreso"
             className="text-slate-300 hover:text-white font-medium transition-colors"
           >
@@ -64,6 +67,7 @@ export default function Layout() {
           >
             Registrarse
           </Link>
+          </>}
           <Link
             to="/perfil"
             aria-label="Perfil de usuario"
