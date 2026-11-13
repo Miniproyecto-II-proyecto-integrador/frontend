@@ -17,6 +17,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={{ user, loading, getIdToken: async () => auth?.currentUser ? auth.currentUser.getIdToken() : null, signOut: async () => { if (auth) await signOut(auth); } }}>{children}</AuthContext.Provider>;
 }
 
+// El proveedor y su hook se mantienen juntos para compartir el contexto privado.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth requiere AuthProvider');
