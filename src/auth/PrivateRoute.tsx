@@ -14,7 +14,12 @@ export default function PrivateRoute() {
   useEffect(() => {
     if (!user) return;
     let active = true;
-    getProfile().then(() => { if (active) setResult({ uid: user.uid, status: 'ok' }); }).catch((error: unknown) => {
+    getProfile().then((profile) => {
+      if (active) {
+        const complete = profile.perfilCompleto && Boolean(profile.username?.trim());
+        setResult({ uid: user.uid, status: complete ? 'ok' : 'missing' });
+      }
+    }).catch((error: unknown) => {
       if (!active) return;
       if (error instanceof ApiError && error.status === 401 && auth) { void signOut(auth); return; }
       setResult({ uid: user.uid, status: error instanceof ApiError && error.detail.codigo === 'PERFIL_NO_ENCONTRADO' ? 'missing' : 'error' });
