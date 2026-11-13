@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import HealthDataViewer from '../components/HealthDataViewer';
 
 export default function Inicio() {
   return (
@@ -37,13 +36,6 @@ export default function Inicio() {
         </Link>
       </div>
 
-      {/* Requisito TS-00: Panel de estado de conexión para evaluación del Sprint 0 */}
-      <div className="mt-24 w-full max-w-xl border-t border-slate-800/60 pt-8 opacity-65 hover:opacity-100 transition-opacity">
-        <p className="mb-4 text-xs font-medium uppercase tracking-widest text-slate-500">
-          Panel de estado de conexión · Evaluación Sprint 0 (TS-00)
-        </p>
-        <HealthDataViewer />
-      </div>
     </section>
   );
 }

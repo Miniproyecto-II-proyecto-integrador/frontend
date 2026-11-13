@@ -7,6 +7,7 @@ import Button from '../components/Button';
 import Spinner from '../components/Spinner';
 import StatusMessage from '../components/StatusMessage';
 import TextField from '../components/TextField';
+import GoogleIcon from '../components/GoogleIcon';
 
 export default function Ingreso() {
   const [email, setEmail] = useState('');
@@ -61,7 +62,7 @@ export default function Ingreso() {
         {requested && <p className="mt-4 text-sm text-slate-300">Inicia sesión para continuar.</p>}
         <div className="mt-7 space-y-5">
           {message && <StatusMessage type="error">{message}</StatusMessage>}{success && <StatusMessage type="success">Sesión iniciada correctamente.</StatusMessage>}
-          <Button variant="secondary" className="w-full !border-0 !bg-[#1b2b3d] !py-3" onClick={google} disabled={Boolean(loading) || success}>{loading === 'google' ? <><Spinner /> Conectando con Google…</> : <><span aria-hidden="true" className="font-bold text-blue-300">G</span> Continuar con Google</>}</Button>
+          <Button variant="secondary" className="w-full !border-0 !bg-[#1b2b3d] !py-3" onClick={google} disabled={Boolean(loading) || success}>{loading === 'google' ? <><Spinner /> Conectando con Google…</> : <><GoogleIcon /> Continuar con Google</>}</Button>
           <div className="flex items-center gap-3 text-xs text-slate-300"><span className="h-px flex-1 bg-slate-700" />o con tu correo de estudio<span className="h-px flex-1 bg-slate-700" /></div>
           <form onSubmit={submit} noValidate className="space-y-5">
             <TextField ref={emailRef} label="Correo electrónico" type="email" autoComplete="email" placeholder="estudiante@universidad.edu" value={email} onChange={(e) => { setEmail(e.target.value); setErrors((old) => ({ ...old, email: undefined })); }} error={errors.email} disabled={Boolean(loading) || success} />
