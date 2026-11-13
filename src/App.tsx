@@ -9,6 +9,7 @@ import Perfil from './pages/Perfil';
 import Sala from './pages/Sala';
 import Ayuda from './pages/Ayuda';
 import NoEncontrada from './pages/NoEncontrada';
+import PrivateRoute from './auth/PrivateRoute';
 
 function App() {
   return (
@@ -23,9 +24,11 @@ function App() {
           <Route path="/nombre-de-usuario" element={<ElegirUsuario />} />
 
           {/* Rutas privadas */}
-          <Route path="/panel" element={<Panel />} />
-          <Route path="/perfil" element={<Perfil />} />
-          <Route path="/salas/:id" element={<Sala />} />
+          <Route element={<PrivateRoute />}>
+            <Route path="/panel" element={<Panel />} />
+            <Route path="/perfil" element={<Perfil />} />
+            <Route path="/salas/:id" element={<Sala />} />
+          </Route>
 
           {/* Rutas de apoyo */}
           <Route path="/ayuda" element={<Ayuda />} />

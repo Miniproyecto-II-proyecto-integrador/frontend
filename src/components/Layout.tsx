@@ -1,10 +1,15 @@
-import { Outlet, Link, NavLink } from 'react-router-dom';
+import { Outlet, Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
 
 export default function Layout() {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const authPage = ['/ingreso', '/registro', '/nombre-de-usuario'].includes(location.pathname);
   return (
     <div className="min-h-screen w-full bg-[#070b14] text-slate-200 flex flex-col font-sans">
       {/* Encabezado / Navegación */}
-      <header className="w-full bg-[#0b101e] border-b border-slate-800/80 px-6 py-3.5 flex justify-between items-center">
+      {!authPage && <header className="w-full bg-[#0b101e] border-b border-slate-800/80 px-6 py-3.5 flex justify-between items-center">
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center gap-3 group">
             <div className="size-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm group-hover:bg-blue-500 transition-colors">
@@ -52,7 +57,7 @@ export default function Layout() {
         </div>
 
         <div className="flex items-center gap-5 text-sm">
-          <Link
+          {user ? <button type="button" onClick={async () => { await signOut(); navigate('/ingreso', { replace: true }); }} className="text-slate-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2">Cerrar sesión</button> : <><Link
             to="/ingreso"
             className="text-slate-300 hover:text-white font-medium transition-colors"
           >
@@ -64,6 +69,7 @@ export default function Layout() {
           >
             Registrarse
           </Link>
+          </>}
           <Link
             to="/perfil"
             aria-label="Perfil de usuario"
@@ -85,7 +91,7 @@ export default function Layout() {
             </svg>
           </Link>
         </div>
-      </header>
+      </header>}
 
       {/* Contenido Principal de cada Ruta */}
       <main className="flex-1 w-full flex flex-col">
@@ -93,9 +99,9 @@ export default function Layout() {
       </main>
 
       {/* Pie de página */}
-      <footer className="w-full bg-[#090d19] border-t border-slate-800/70 py-5 px-6 text-center text-xs text-slate-500">
+      {!authPage && <footer className="w-full bg-[#090d19] border-t border-slate-800/70 py-5 px-6 text-center text-xs text-slate-500">
         &copy; {new Date().getFullYear()} Study Room · Espacio digital de estudio colaborativo
-      </footer>
+      </footer>}
     </div>
   );
 }
