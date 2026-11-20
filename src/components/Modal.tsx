@@ -5,6 +5,7 @@ type ModalProps = {
   open: boolean;
   title: string;
   description?: string;
+  titleIcon?: ReactNode;
   onClose: () => void;
   /** false mientras hay una acción en curso: bloquea Esc y clic fuera */
   dismissible?: boolean;
@@ -16,6 +17,7 @@ export default function Modal({
   open,
   title,
   description,
+  titleIcon,
   onClose,
   dismissible = true,
   tone = "default",
@@ -56,15 +58,18 @@ export default function Modal({
         <div
           className={`flex flex-col gap-4 rounded-lg border bg-[#0d1c2d] p-6 shadow-2xl ${tone === "danger" ? "border-red-500/40" : "border-[#1c2b3c]"}`}
         >
-          <div>
-            <h2 id={titleId} className="text-lg font-semibold text-white">
-              {title}
-            </h2>
-            {description && (
-              <p id={descId} className="mt-1 text-sm text-slate-300">
-                {description}
-              </p>
-            )}
+          <div className="flex items-start gap-3">
+            {titleIcon}
+            <div>
+              <h2 id={titleId} className="text-lg font-semibold text-white">
+                {title}
+              </h2>
+              {description && (
+                <p id={descId} className="mt-1 text-sm text-slate-300">
+                  {description}
+                </p>
+              )}
+            </div>
           </div>
           {children}
         </div>
