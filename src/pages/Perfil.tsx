@@ -9,6 +9,7 @@ import Spinner from "../components/Spinner";
 import StatusMessage from "../components/StatusMessage";
 import TextField from "../components/TextField";
 import { simularSolicitud } from "../utils/simulacion";
+import EliminarCuenta from "../components/EliminarCuenta";
 
 type Fields = {
   nombres: string;
@@ -370,7 +371,7 @@ export default function Perfil() {
               )}
             </div>
 
-            {/* US-05: aquí va <EliminarCuenta /> */}
+            <EliminarCuenta />
           </>
         )}
       </div>
