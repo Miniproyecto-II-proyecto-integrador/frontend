@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { getRooms } from "../auth/rooms";
 import { getProfile } from "../auth/users";
 import Button from "../components/Button";
 import CrearSalaModal from "../components/CrearSalaModal";
@@ -15,29 +16,6 @@ import SalaCard from "../components/SalaCard";
 import Spinner from "../components/Spinner";
 import StatusMessage from "../components/StatusMessage";
 import type { Sala } from "../types/sala";
-import { parametroSimulacion, simularSolicitud } from "../utils/simulacion";
-
-// TODO(integración): reemplazar por GET /api/rooms (salas del anfitrión).
-const SALAS_MOCK: Sala[] = [
-  {
-    id: "k3Fq9aXz",
-    nombre: "Taller de Álgebra Lineal",
-    creadaEn: "2026-11-17T15:00:00Z",
-    participantesConectados: 0,
-  },
-  {
-    id: "p8Wd2mLc",
-    nombre: "Proyecto Final de Algoritmos",
-    creadaEn: "2026-11-12T19:30:00Z",
-    participantesConectados: 0,
-  },
-  {
-    id: "v1Tn6yRb",
-    nombre: "Repaso de Física",
-    creadaEn: "2026-11-05T13:10:00Z",
-    participantesConectados: 0,
-  },
-];
 
 type Estado = "cargando" | "listo" | "error";
 
@@ -97,11 +75,17 @@ export default function Panel() {
 
   useEffect(() => {
     let active = true;
-    const datos: Sala[] = parametroSimulacion() === "vacio" ? [] : SALAS_MOCK;
-    simularSolicitud<Sala[]>(datos)
+    getRooms()
       .then((resultado) => {
         if (active) {
-          setSalas(resultado);
+          setSalas(
+            resultado.map((sala) => ({
+              id: sala.id,
+              nombre: sala.nombre,
+              creadaEn: sala.createdAt,
+              participantesConectados: 0,
+            })),
+          );
           setEstado("listo");
         }
       })
