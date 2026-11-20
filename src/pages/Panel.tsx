@@ -14,7 +14,6 @@ import {
 } from "../components/icons";
 import SalaCard from "../components/SalaCard";
 import Spinner from "../components/Spinner";
-import StatusMessage from "../components/StatusMessage";
 import type { Sala } from "../types/sala";
 
 type Estado = "cargando" | "listo" | "error";
@@ -162,11 +161,51 @@ export default function Panel() {
         )}
 
         {estado === "error" && (
-          <div className="space-y-4">
-            <StatusMessage type="error">
-              No pudimos cargar tus salas. Inténtalo de nuevo.
-            </StatusMessage>
-            <Button onClick={reintentar}>Reintentar</Button>
+          <div
+            role="alert"
+            className="flex flex-col items-center gap-4 rounded-lg border border-red-500/20 bg-[#111c2f] px-5 py-8 text-center sm:py-10"
+          >
+            <div className="flex size-11 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 text-red-400">
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-5"
+              >
+                <path d="M10.3 3.9 2.7 17.1A2 2 0 0 0 4.4 20h15.2a2 2 0 0 0 1.7-2.9L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                <path d="M12 9v4m0 3h.01" />
+              </svg>
+            </div>
+            <div className="space-y-2">
+              <h2 className="font-semibold text-white">
+                No se pudieron cargar las salas de estudio
+              </h2>
+              <p className="mx-auto max-w-lg text-sm leading-relaxed text-slate-400">
+                Ocurrió un problema al intentar cargar tus salas. Verifica tu
+                conexión e intenta nuevamente.
+              </p>
+            </div>
+            <Button onClick={reintentar}>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-4"
+              >
+                <path d="M20 7v5h-5" />
+                <path d="M4 17v-5h5" />
+                <path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2" />
+              </svg>
+              Reintentar
+            </Button>
           </div>
         )}
 
