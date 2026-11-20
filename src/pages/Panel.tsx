@@ -269,6 +269,7 @@ export default function Panel() {
       <CrearSalaModal
         open={crearAbierto}
         onClose={() => setCrearAbierto(false)}
+        onCreated={() => setIntento((n) => n + 1)}
       />
 
       {/* Región viva persistente: anuncia "ID copiado" al lector de pantalla sin mover el foco */}

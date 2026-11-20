@@ -20,7 +20,10 @@ export default function Ingreso() {
   const passwordRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const requested = (location.state as { from?: string } | null)?.from;
+  const locationState = location.state as
+    | { from?: string; cuentaEliminada?: boolean; errorCierreSesion?: boolean }
+    | null;
+  const requested = locationState?.from;
   const destination = typeof requested === 'string' && requested.startsWith('/') && !requested.startsWith('//') ? requested : '/panel';
   useEffect(() => { document.title = 'Iniciar sesión | Study Room'; }, []);
 
@@ -61,6 +64,8 @@ export default function Ingreso() {
         <p className="mt-2 text-sm text-slate-300">Bienvenido de nuevo. Ingresa a tus salas de estudio.</p>
         {requested && <p className="mt-4 text-sm text-slate-300">Inicia sesión para continuar.</p>}
         <div className="mt-7 space-y-5">
+          {locationState?.cuentaEliminada && <StatusMessage type="success">Tu cuenta se eliminó con éxito.</StatusMessage>}
+          {locationState?.errorCierreSesion && <StatusMessage type="error">La cuenta se eliminó, pero no se pudo cerrar la sesión anterior.</StatusMessage>}
           {message && <StatusMessage type="error">{message}</StatusMessage>}{success && <StatusMessage type="success">Sesión iniciada correctamente.</StatusMessage>}
           <Button variant="secondary" className="w-full !border-0 !bg-[#1b2b3d] !py-3" onClick={google} disabled={Boolean(loading) || success}>{loading === 'google' ? <><Spinner /> Conectando con Google…</> : <><GoogleIcon /> Continuar con Google</>}</Button>
           <div className="flex items-center gap-3 text-xs text-slate-300"><span className="h-px flex-1 bg-slate-700" />o con tu correo de estudio<span className="h-px flex-1 bg-slate-700" /></div>

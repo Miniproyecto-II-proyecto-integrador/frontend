@@ -15,9 +15,11 @@ const ID_CAMPO = "crear-sala-nombre";
 export default function CrearSalaModal({
   open,
   onClose,
+  onCreated,
 }: {
   open: boolean;
   onClose: () => void;
+  onCreated: () => void;
 }) {
   const navigate = useNavigate();
   const [nombre, setNombre] = useState("");
@@ -50,9 +52,13 @@ export default function CrearSalaModal({
     }
     setCreando(true);
     try {
-      const sala = await createRoom(limpio);
+      await createRoom(limpio);
       setCreada(true);
-      window.setTimeout(() => navigate(`/salas/${sala.id}`), 800);
+      onCreated();
+      window.setTimeout(() => {
+        onClose();
+        navigate("/panel");
+      }, 1500);
     } catch (error) {
       if (error instanceof ApiError && error.detail.campos?.nombre) {
         setError(error.detail.campos.nombre);
@@ -83,7 +89,7 @@ export default function CrearSalaModal({
         {general && <StatusMessage type="error">{general}</StatusMessage>}
         {creada && (
           <StatusMessage type="success">
-            Sala creada. Entrando a la sala…
+            Sala creada. Volviendo al panel…
           </StatusMessage>
         )}
         <TextField

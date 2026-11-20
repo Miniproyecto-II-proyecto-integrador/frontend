@@ -30,15 +30,21 @@ export default function EliminarCuenta() {
       await deleteMyAccount();
       deletionSucceeded = true;
       setAccountDeleted(true);
-      await signOut();
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 900));
       navigate("/ingreso", { replace: true, state: { cuentaEliminada: true } });
+      await signOut();
     } catch (cause) {
+      if (deletionSucceeded) {
+        navigate("/ingreso", {
+          replace: true,
+          state: { cuentaEliminada: true, errorCierreSesion: true },
+        });
+        return;
+      }
       setError(
-        deletionSucceeded
-          ? "Tu cuenta fue eliminada, pero no pudimos cerrar la sesión local. Recarga la página."
-          : cause instanceof ApiError
-            ? cause.detail.mensaje
-            : "No pudimos confirmar la eliminación. Puede que haya quedado pendiente; vuelve a intentarlo.",
+        cause instanceof ApiError
+          ? cause.detail.mensaje
+          : "No pudimos confirmar la eliminación. Puede que haya quedado pendiente; vuelve a intentarlo.",
       );
       setDeleting(false);
     }
@@ -88,6 +94,11 @@ export default function EliminarCuenta() {
           </li>
         </ul>
         {error && <StatusMessage type="error">{error}</StatusMessage>}
+        {accountDeleted && (
+          <StatusMessage type="success">
+            Tu cuenta se eliminó con éxito.
+          </StatusMessage>
+        )}
         <div className="flex flex-col-reverse gap-2.5 border-t border-[#1c2b3c] pt-4 sm:flex-row sm:justify-end">
           <Button variant="secondary" onClick={cerrar} disabled={deleting}>
             Cancelar
