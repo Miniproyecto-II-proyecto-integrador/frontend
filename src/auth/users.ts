@@ -6,3 +6,4 @@ export const checkUsername = (username: string) => requestApi<{ username: string
 export const getProfile = () => requestApi<Profile>('/api/users/me', { private: true });
 export const createProfile = (body: { username: string; nombres?: string; apellidos?: string; avatar?: string }) => requestApi<Profile>('/api/users', { private: true, method: 'POST', body });
 export const updateProfile = (body: { nombres?: string; apellidos?: string; username?: string; email?: string; avatar?: string }) => requestApi<Profile>('/api/users/me', { private: true, method: 'PATCH', body });
+export const deleteMyAccount = () => requestApi<{ eliminada: true; mensaje: string }>('/api/users/me', { private: true, method: 'DELETE' });

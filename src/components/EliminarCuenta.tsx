@@ -1,16 +1,20 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ApiError } from "../auth/api";
+import { useAuth } from "../auth/AuthContext";
+import { deleteMyAccount } from "../auth/users";
 import Button from "./Button";
 import Modal from "./Modal";
 import Spinner from "./Spinner";
 import StatusMessage from "./StatusMessage";
-import { simularSolicitud } from "../utils/simulacion";
 
 export default function EliminarCuenta() {
+  const { signOut } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
+  const [accountDeleted, setAccountDeleted] = useState(false);
 
   function cerrar() {
     if (deleting) return;
@@ -21,13 +25,20 @@ export default function EliminarCuenta() {
   async function eliminar() {
     setDeleting(true);
     setError("");
+    let deletionSucceeded = false;
     try {
-      // TODO(integración): DELETE /api/users/me y luego signOut() de Firebase
-      await simularSolicitud(null, 1200);
+      await deleteMyAccount();
+      deletionSucceeded = true;
+      setAccountDeleted(true);
+      await signOut();
       navigate("/ingreso", { replace: true, state: { cuentaEliminada: true } });
-    } catch {
+    } catch (cause) {
       setError(
-        "No pudimos completar la acción. No se eliminó nada. Inténtalo de nuevo.",
+        deletionSucceeded
+          ? "Tu cuenta fue eliminada, pero no pudimos cerrar la sesión local. Recarga la página."
+          : cause instanceof ApiError
+            ? cause.detail.mensaje
+            : "No pudimos confirmar la eliminación. Puede que haya quedado pendiente; vuelve a intentarlo.",
       );
       setDeleting(false);
     }
@@ -68,9 +79,12 @@ export default function EliminarCuenta() {
         <ul className="list-disc space-y-1 pl-5 text-sm text-slate-300">
           <li>Se eliminarán tu perfil y tus datos personales.</li>
           <li>Tu nombre de usuario quedará libre para otras personas.</li>
-          {/* TODO: ajustar a la política de salas y mensajes que documente Coordinación */}
           <li>
-            Tus salas y mensajes asociados se eliminarán junto con tu cuenta.
+            Se eliminarán las salas que creaste y sus datos asociados.
+          </li>
+          <li>
+            En salas de otras personas, tus mensajes se conservarán sin
+            identificarte.
           </li>
         </ul>
         {error && <StatusMessage type="error">{error}</StatusMessage>}
@@ -80,15 +94,19 @@ export default function EliminarCuenta() {
           </Button>
           <Button
             className="!bg-[#dc2626] hover:!bg-[#b91c1c]"
-            onClick={eliminar}
+            onClick={() =>
+              accountDeleted ? window.location.reload() : void eliminar()
+            }
             disabled={deleting}
           >
             {deleting && <Spinner />}
             {deleting
               ? "Eliminando cuenta…"
-              : error
-                ? "Reintentar"
-                : "Eliminar cuenta"}
+              : accountDeleted
+                ? "Recargar página"
+                : error
+                  ? "Reintentar"
+                  : "Eliminar cuenta"}
           </Button>
         </div>
       </Modal>
