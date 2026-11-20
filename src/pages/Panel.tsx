@@ -9,6 +9,7 @@ import {
   IconoGrupo,
   IconoLlave,
   IconoMas,
+  IconoSala,
 } from "../components/icons";
 import SalaCard from "../components/SalaCard";
 import Spinner from "../components/Spinner";
@@ -187,6 +188,9 @@ export default function Panel() {
 
         {estado === "listo" && salas.length === 0 && (
           <div className="flex flex-col items-center gap-4 rounded-lg border border-dashed border-[#273647] bg-[#0d1c2d]/60 p-10 text-center">
+            <div className="flex size-14 items-center justify-center rounded-lg border border-blue-500/20 bg-blue-500/10 text-blue-400">
+              <IconoSala className="size-7" />
+            </div>
             <h2 className="text-lg font-bold text-white">
               Aún no tienes salas de estudio
             </h2>

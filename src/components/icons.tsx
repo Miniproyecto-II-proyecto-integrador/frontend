@@ -53,6 +53,13 @@ export const IconoCasa = ({ className }: IconProps) => (
   </Icono>
 );
 
+export const IconoSala = ({ className }: IconProps) => (
+  <Icono className={className}>
+    <path d="M5 8h14a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2v-9a2 2 0 012-2z" />
+    <path d="M8 8V6a2 2 0 012-2h4a2 2 0 012 2v2M3 13h18" />
+  </Icono>
+);
+
 export const IconoLlave = ({ className }: IconProps) => (
   <Icono className={className}>
     <path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
