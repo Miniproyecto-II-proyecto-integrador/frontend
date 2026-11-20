@@ -8,7 +8,7 @@ export class ApiError extends Error {
   constructor(status: number, detail: ErrorDetail) { super(detail.mensaje); this.status = status; this.detail = detail; }
 }
 
-async function request<T>(path: string, options: { body?: object; private?: boolean } = {}): Promise<T> {
+async function request<T>(path: string, options: { body?: object; private?: boolean; method?: 'POST' | 'PATCH' } = {}): Promise<T> {
   const base = import.meta.env.VITE_API_URL?.replace(/\/$/, '');
   if (!base) throw new ApiError(0, { codigo: 'SIN_CONFIGURAR', mensaje: 'El servicio no está configurado.' });
   const headers: Record<string, string> = {};
@@ -18,7 +18,7 @@ async function request<T>(path: string, options: { body?: object; private?: bool
     headers.Authorization = `Bearer ${await auth.currentUser.getIdToken()}`;
   }
   let response: Response;
-  try { response = await fetch(`${base}${path}`, { method: options.body ? 'POST' : 'GET', headers, body: options.body ? JSON.stringify(options.body) : undefined }); }
+  try { response = await fetch(`${base}${path}`, { method: options.method ?? (options.body ? 'POST' : 'GET'), headers, body: options.body ? JSON.stringify(options.body) : undefined }); }
   catch { throw new ApiError(0, { codigo: 'SIN_CONEXION', mensaje: 'No pudimos conectarnos con el servidor. Inténtalo de nuevo.' }); }
   const data = await response.json().catch(() => null);
   if (!response.ok) throw new ApiError(response.status, data?.error ?? { codigo: 'ERROR_INTERNO', mensaje: 'No pudimos completar la solicitud. Inténtalo de nuevo.' });
@@ -26,4 +26,5 @@ async function request<T>(path: string, options: { body?: object; private?: bool
 }
 export const checkUsername = (username: string) => request<{ username: string; disponible: boolean }>(`/api/users/username-disponible?username=${encodeURIComponent(username.trim())}`);
 export const getProfile = () => request<Profile>('/api/users/me', { private: true });
-export const createProfile = (body: { username: string; nombres?: string; apellidos?: string; avatar?: string }) => request<Profile>('/api/users', { private: true, body });
+export const createProfile = (body: { username: string; nombres?: string; apellidos?: string; avatar?: string }) => request<Profile>('/api/users', { private: true, method: 'POST', body });
+export const updateProfile = (body: { nombres?: string; apellidos?: string; username?: string; email?: string; avatar?: string }) => request<Profile>('/api/users/me', { private: true, method: 'PATCH', body });

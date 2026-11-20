@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { ApiError, getProfile } from "../auth/users";
+import { ApiError, getProfile, updateProfile } from "../auth/users";
 import type { Profile } from "../auth/users";
 import Avatar from "../components/Avatar";
 import { avatarOptions } from "../components/avatarOptions";
@@ -10,7 +10,6 @@ import { IconoCamara } from "../components/icons";
 import Spinner from "../components/Spinner";
 import StatusMessage from "../components/StatusMessage";
 import TextField from "../components/TextField";
-import { simularSolicitud } from "../utils/simulacion";
 
 type Fields = {
   nombres: string;
@@ -22,11 +21,6 @@ type Fields = {
 type FieldErrors = Partial<Record<keyof Fields, string>>;
 type Foto = { file: File; url: string };
 
-// TODO(integración): estas colisiones son simuladas. Las reemplaza la respuesta de la API (409 / campos).
-const USERNAME_OCUPADO = "ocupado";
-const CORREO_OCUPADO = "ocupado@correo.com";
-
-// TODO(integración): confirmar con backend los tipos permitidos y el tamaño máximo.
 const TIPOS_FOTO = ["image/jpeg", "image/png", "image/webp"];
 const MAX_FOTO_MB = 2;
 
@@ -224,38 +218,49 @@ export default function Perfil() {
       enfocar(`perfil-${first}`);
       return;
     }
+    if (foto) {
+      setFotoError(
+        "La carga de fotos aún no está disponible. Elige un avatar predefinido.",
+      );
+      enfocar("perfil-subir-foto");
+      return;
+    }
     setSaving(true);
     try {
-      // TODO(integración): PUT /api/users/me para los datos y, si hay foto,
-      // POST multipart del archivo (foto.file) al endpoint de avatar; usar la URL que devuelva.
-      await simularSolicitud(null);
-      const colisiones: FieldErrors = {};
-      if (form.username.trim().toLowerCase() === USERNAME_OCUPADO)
-        colisiones.username =
-          "Ese nombre de usuario ya está en uso. Prueba con otro.";
-      if (form.correo.trim().toLowerCase() === CORREO_OCUPADO)
-        colisiones.correo =
-          "Ese correo ya está registrado en otra cuenta. Usa uno diferente.";
-      const firstCol = Object.keys(colisiones)[0];
-      if (firstCol) {
-        setErrors(colisiones);
-        enfocar(`perfil-${firstCol}`);
-        return;
-      }
-      setProfile({
-        ...profile,
+      const actualizado = await updateProfile({
         nombres: form.nombres.trim(),
         apellidos: form.apellidos.trim(),
         username: form.username.trim(),
         email: form.correo.trim(),
-        avatar: foto ? foto.url : form.avatar, // simulado: la URL local pasa a ser el avatar
+        avatar: form.avatar,
       });
-      setFoto(null); // no se libera la URL: ahora es profile.avatar (se libera al salir de la página)
+      setProfile(actualizado);
       setEditing(false);
       setSaved(true);
       enfocar("perfil-editar");
-    } catch {
-      setGeneral("No pudimos guardar tus cambios. Inténtalo de nuevo.");
+    } catch (error) {
+      if (error instanceof ApiError && error.detail.campos) {
+        const campos = error.detail.campos;
+        const nextErrors: FieldErrors = {
+          nombres: campos.nombres,
+          apellidos: campos.apellidos,
+          username: campos.username,
+          correo: campos.email ?? campos.correo,
+          avatar: campos.avatar,
+        };
+        setErrors(nextErrors);
+        const firstCampo = Object.keys(nextErrors).find(
+          (campo) => nextErrors[campo as keyof Fields],
+        );
+        if (firstCampo) enfocar(`perfil-${firstCampo}`);
+        else setGeneral(error.detail.mensaje);
+      } else {
+        setGeneral(
+          error instanceof ApiError
+            ? error.detail.mensaje
+            : "No pudimos guardar tus cambios. Inténtalo de nuevo.",
+        );
+      }
     } finally {
       setSaving(false);
     }
@@ -427,7 +432,8 @@ export default function Perfil() {
                             id="perfil-foto-ayuda"
                             className="text-xs text-slate-400"
                           >
-                            Formato JPG, PNG o WebP. Máximo {MAX_FOTO_MB} MB.
+                            La carga de fotos aún no está disponible; usa uno
+                            de los avatares predefinidos.
                           </p>
                           {foto && (
                             <p className="truncate text-xs text-emerald-300">
