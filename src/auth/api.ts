@@ -27,7 +27,7 @@ export async function requestApi<T>(
   options: {
     body?: object;
     private?: boolean;
-    method?: "GET" | "POST" | "PATCH";
+    method?: "GET" | "POST" | "PATCH" | "DELETE";
   } = {},
 ): Promise<T> {
   const base = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
