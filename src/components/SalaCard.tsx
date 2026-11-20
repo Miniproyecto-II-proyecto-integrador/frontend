@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import type { Sala } from "../types/sala";
+import { IconoEntrar, IconoParticipantes } from "./icons";
 
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" });
 
@@ -11,10 +12,11 @@ export default function SalaCard({
   onCopiar: (sala: Sala) => void;
 }) {
   const headingId = `sala-${sala.id}-nombre`;
+  const n = sala.participantesConectados;
   return (
     <article
       aria-labelledby={headingId}
-      className="flex flex-col justify-between gap-5 rounded-lg border border-[#1c2b3c] bg-[#0d1c2d] p-5"
+      className="flex w-full flex-col justify-between gap-5 rounded-lg border border-[#1c2b3c] bg-[#0d1c2d] p-5"
     >
       <div className="flex flex-col gap-4">
         <span className="w-fit rounded border border-blue-400/30 bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-300">
@@ -27,8 +29,13 @@ export default function SalaCard({
           >
             {sala.nombre}
           </h2>
-          <p className="mt-1 text-xs text-slate-400">
-            Creada el {formatoFecha.format(new Date(sala.creadaEn))}
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
+            <IconoParticipantes className="size-3.5 shrink-0" />
+            <span>
+              {n}{" "}
+              {n === 1 ? "participante conectado" : "participantes conectados"}{" "}
+              · Creada el {formatoFecha.format(new Date(sala.creadaEn))}
+            </span>
           </p>
         </div>
         <div className="flex items-center justify-between gap-2 rounded border border-[#1c2b3c] bg-[#051424] px-3 py-2">
@@ -63,9 +70,12 @@ export default function SalaCard({
       </div>
       <Link
         to={`/salas/${sala.id}`}
-        className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#2563eb] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1d4ed8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400"
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#2563eb] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1d4ed8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400"
       >
-        Entrar a la sala<span className="sr-only">: {sala.nombre}</span>
+        <IconoEntrar className="size-4 shrink-0" />
+        <span>
+          Entrar a la sala<span className="sr-only">: {sala.nombre}</span>
+        </span>
       </Link>
     </article>
   );
