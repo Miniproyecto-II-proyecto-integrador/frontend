@@ -35,40 +35,29 @@ const navigationItems = [
 ];
 
 export default function Layout() {
-  const { user, signOut } = useAuth();
-  const [profileSummary, setProfileSummary] = useState<{
-    uid: string;
-    avatar: string;
-    username: string;
-  } | null>(null);
+  const { user, profile, setProfile, signOut } = useAuth();
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [logoutError, setLogoutError] = useState('');
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || profile?.uid === user.uid) return;
     let active = true;
     getProfile()
-      .then((profile) => {
-        if (active) {
-          setProfileSummary({
-            uid: user.uid,
-            avatar: profile.avatar,
-            username: profile.username,
-          });
-        }
+      .then((loadedProfile) => {
+        if (active) setProfile(loadedProfile);
       })
       .catch(() => {
-        if (active) setProfileSummary(null);
+        if (active) setProfile(null);
       });
     return () => { active = false; };
-  }, [user]);
+  }, [user, profile?.uid, setProfile]);
 
   const navigate = useNavigate();
   const location = useLocation();
   const authPage = ['/ingreso', '/registro', '/nombre-de-usuario'].includes(location.pathname);
-  const username = profileSummary && user && profileSummary.uid === user.uid
-    ? profileSummary.username
+  const username = profile && user && profile.uid === user.uid
+    ? profile.username
     : user?.displayName || user?.email?.split('@')[0] || 'Perfil';
 
   function closeLogoutDialog() {
@@ -155,7 +144,7 @@ export default function Layout() {
                     className="flex min-w-0 items-center gap-2 rounded-md text-slate-300 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-400"
                   >
                     <Avatar
-                      value={(profileSummary?.uid === user.uid && profileSummary.avatar) || user.photoURL}
+                      value={(profile?.uid === user.uid && profile.avatar) || user.photoURL}
                       className="size-8 shrink-0 border border-slate-700"
                     />
                     <span className="hidden max-w-32 truncate font-medium lg:inline">
