@@ -1,12 +1,13 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { ApiError } from "../auth/api";
+import { createRoom } from "../auth/rooms";
 import Button from "./Button";
 import Modal from "./Modal";
 import Spinner from "./Spinner";
 import StatusMessage from "./StatusMessage";
 import TextField from "./TextField";
-import { simularSolicitud } from "../utils/simulacion";
 
 const MAX_NOMBRE = 50;
 const ID_CAMPO = "crear-sala-nombre";
@@ -49,14 +50,20 @@ export default function CrearSalaModal({
     }
     setCreando(true);
     try {
-      // TODO(integración): POST /api/rooms (el ID único lo genera el servidor)
-      const id = await simularSolicitud(
-        Math.random().toString(36).slice(2, 10),
-      );
+      const sala = await createRoom(limpio);
       setCreada(true);
-      window.setTimeout(() => navigate(`/salas/${id}`), 800);
-    } catch {
-      setGeneral("No pudimos crear la sala. Inténtalo de nuevo.");
+      window.setTimeout(() => navigate(`/salas/${sala.id}`), 800);
+    } catch (error) {
+      if (error instanceof ApiError && error.detail.campos?.nombre) {
+        setError(error.detail.campos.nombre);
+        document.getElementById(ID_CAMPO)?.focus();
+      } else {
+        setGeneral(
+          error instanceof ApiError
+            ? error.detail.mensaje
+            : "No pudimos crear la sala. Inténtalo de nuevo.",
+        );
+      }
     } finally {
       setCreando(false);
     }
