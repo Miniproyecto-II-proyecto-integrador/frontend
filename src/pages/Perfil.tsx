@@ -246,13 +246,21 @@ export default function Perfil() {
       setSaved(true);
       enfocar("perfil-editar");
     } catch (error) {
-      if (error instanceof ApiError && error.detail.campos) {
-        const campos = error.detail.campos;
+      const correoEnUso =
+        error instanceof ApiError &&
+        error.detail.codigo === "CORREO_YA_REGISTRADO";
+      if (
+        error instanceof ApiError &&
+        (error.detail.campos || correoEnUso)
+      ) {
+        const campos = error.detail.campos ?? {};
         const nextErrors: FieldErrors = {
           nombres: campos.nombres,
           apellidos: campos.apellidos,
           username: campos.username,
-          correo: campos.email ?? campos.correo,
+          correo: correoEnUso
+            ? "Este correo está en uso, intenta con otro."
+            : campos.email ?? campos.correo,
           avatar: campos.avatar,
         };
         setErrors(nextErrors);
@@ -319,7 +327,9 @@ export default function Perfil() {
         {loadState === "error" && (
           <div className="space-y-4">
             <StatusMessage type="error">{loadError}</StatusMessage>
-            <Button onClick={reintentarCarga}>Reintentar</Button>
+            <div className="flex justify-center">
+              <Button onClick={reintentarCarga}>Reintentar</Button>
+            </div>
           </div>
         )}
 
