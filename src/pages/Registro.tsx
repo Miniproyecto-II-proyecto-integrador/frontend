@@ -16,7 +16,7 @@ import { avatarOptions } from '../components/avatarOptions';
 type Fields = { nombres: string; apellidos: string; username: string; avatar: string; correo: string; contrasena: string };
 const initial: Fields = { nombres: '', apellidos: '', username: '', avatar: 'avatar-1', correo: '', contrasena: '' };
 export default function Registro() {
-  const { user } = useAuth();
+  const { user, setProfileSummary } = useAuth();
   const location = useLocation();
   const completingProfile = Boolean((location.state as { completarPerfil?: boolean } | null)?.completarPerfil && user);
   const [form, setForm] = useState<Fields>(() => ({ ...initial, correo: completingProfile ? user?.email ?? '' : '' }));
@@ -55,7 +55,12 @@ export default function Registro() {
       if (!availability.disponible) { setErrors({ username: 'Ese nombre de usuario ya está en uso. Prueba con otro.' }); document.getElementById('registro-username')?.focus(); return; }
       if (!pendingProfile) { await createUserWithEmailAndPassword(auth, form.correo.trim(), form.contrasena); setPendingProfile(true); }
       else if (!auth.currentUser || auth.currentUser.email?.toLowerCase() !== form.correo.trim().toLowerCase()) throw new Error('La sesión cambió. Inicia sesión de nuevo para completar el perfil.');
-      await createProfile({ nombres: form.nombres.trim(), apellidos: form.apellidos.trim(), username: form.username.trim(), avatar: form.avatar });
+      const profile = await createProfile({ nombres: form.nombres.trim(), apellidos: form.apellidos.trim(), username: form.username.trim(), avatar: form.avatar });
+      setProfileSummary({
+        uid: profile.uid,
+        avatar: profile.avatar,
+        username: profile.username,
+      });
       setSuccess(true); window.setTimeout(() => navigate('/panel', { replace: true }), 800);
     } catch (error) {
       if (error instanceof ApiError && error.detail.codigo === 'PERFIL_YA_EXISTE') { setSuccess(true); window.setTimeout(() => navigate('/panel', { replace: true }), 800); }

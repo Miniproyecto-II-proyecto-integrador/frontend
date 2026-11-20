@@ -9,7 +9,7 @@ import StatusMessage from '../components/StatusMessage';
 import TextField from '../components/TextField';
 
 export default function ElegirUsuario() {
-  const { user, loading: checking } = useAuth();
+  const { user, loading: checking, setProfileSummary } = useAuth();
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,7 +27,16 @@ export default function ElegirUsuario() {
     if (!username.trim()) { setError('Escribe un nombre de usuario.'); fieldRef.current?.focus(); return; }
     if (!/^[A-Za-z0-9_]{3,20}$/.test(username.trim())) { setError('Usa de 3 a 20 caracteres: letras, números o guion bajo (_), sin espacios.'); fieldRef.current?.focus(); return; }
     setLoading(true); setError('');
-    try { await createProfile({ username: username.trim() }); setSuccess(true); window.setTimeout(() => navigate(destination, { replace: true }), 800); }
+    try {
+      const profile = await createProfile({ username: username.trim() });
+      setProfileSummary({
+        uid: profile.uid,
+        avatar: profile.avatar,
+        username: profile.username,
+      });
+      setSuccess(true);
+      window.setTimeout(() => navigate(destination, { replace: true }), 800);
+    }
     catch (err) { setError(err instanceof ApiError ? err.detail.campos?.username ?? err.message : 'No se pudo guardar tu nombre de usuario. Inténtalo de nuevo.'); fieldRef.current?.focus(); }
     finally { setLoading(false); }
   }

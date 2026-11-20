@@ -35,12 +35,7 @@ const navigationItems = [
 ];
 
 export default function Layout() {
-  const { user, signOut } = useAuth();
-  const [profileSummary, setProfileSummary] = useState<{
-    uid: string;
-    avatar: string;
-    username: string;
-  } | null>(null);
+  const { user, signOut, profileSummary, setProfileSummary } = useAuth();
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [logoutError, setLogoutError] = useState('');
@@ -59,10 +54,14 @@ export default function Layout() {
         }
       })
       .catch(() => {
-        if (active) setProfileSummary(null);
+        if (active) {
+          setProfileSummary((current) =>
+            current?.uid === user.uid ? current : null,
+          );
+        }
       });
     return () => { active = false; };
-  }, [user]);
+  }, [user, setProfileSummary]);
 
   const navigate = useNavigate();
   const location = useLocation();
