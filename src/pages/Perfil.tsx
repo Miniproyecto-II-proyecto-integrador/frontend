@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
+import { useAuth } from "../auth/AuthContext";
 import { ApiError, getProfile, updateProfile } from "../auth/users";
 import type { Profile } from "../auth/users";
 import Avatar from "../components/Avatar";
@@ -78,6 +79,7 @@ function Dato({
 }
 
 export default function Perfil() {
+  const { setProfileSummary } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loadState, setLoadState] = useState<"cargando" | "error" | "listo">(
     "cargando",
@@ -235,6 +237,11 @@ export default function Perfil() {
         avatar: form.avatar,
       });
       setProfile(actualizado);
+      setProfileSummary({
+        uid: actualizado.uid,
+        avatar: actualizado.avatar,
+        username: actualizado.username,
+      });
       setEditing(false);
       setSaved(true);
       enfocar("perfil-editar");
