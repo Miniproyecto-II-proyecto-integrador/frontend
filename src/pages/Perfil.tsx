@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { ApiError, getProfile } from "../auth/users";
 import type { Profile } from "../auth/users";
 import Avatar from "../components/Avatar";
 import { avatarOptions } from "../components/avatarOptions";
 import Button from "../components/Button";
+import EliminarCuenta from "../components/EliminarCuenta";
+import { IconoCamara } from "../components/icons";
 import Spinner from "../components/Spinner";
 import StatusMessage from "../components/StatusMessage";
 import TextField from "../components/TextField";
 import { simularSolicitud } from "../utils/simulacion";
-import EliminarCuenta from "../components/EliminarCuenta";
 
 type Fields = {
   nombres: string;
@@ -19,11 +20,17 @@ type Fields = {
   avatar: string;
 };
 type FieldErrors = Partial<Record<keyof Fields, string>>;
+type Foto = { file: File; url: string };
 
 // TODO(integración): estas colisiones son simuladas. Las reemplaza la respuesta de la API (409 / campos).
 const USERNAME_OCUPADO = "ocupado";
 const CORREO_OCUPADO = "ocupado@correo.com";
 
+// TODO(integración): confirmar con backend los tipos permitidos y el tamaño máximo.
+const TIPOS_FOTO = ["image/jpeg", "image/png", "image/webp"];
+const MAX_FOTO_MB = 2;
+
+const esFoto = (valor: string) => /^(https:\/\/|blob:)/i.test(valor);
 const enfocar = (id: string) =>
   window.setTimeout(() => document.getElementById(id)?.focus(), 0);
 
@@ -97,8 +104,19 @@ export default function Perfil() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const [foto, setFoto] = useState<Foto | null>(null);
+  const [fotoError, setFotoError] = useState("");
+  const inputFoto = useRef<HTMLInputElement>(null);
+  const urlsCreadas = useRef<string[]>([]);
+
   useEffect(() => {
     document.title = "Perfil | Study Room";
+  }, []);
+
+  // Libera las URLs locales de las fotos al salir de la página
+  useEffect(() => {
+    const urls = urlsCreadas.current;
+    return () => urls.forEach((url) => URL.revokeObjectURL(url));
   }, []);
 
   useEffect(() => {
@@ -134,17 +152,62 @@ export default function Perfil() {
     setErrors((old) => ({ ...old, [field]: undefined }));
   }
 
+  function descartarFoto() {
+    if (foto) URL.revokeObjectURL(foto.url);
+    setFoto(null);
+  }
+
+  function elegirAvatar(id: string) {
+    descartarFoto();
+    setFotoError("");
+    change("avatar", id);
+  }
+
+  function elegirFoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = ""; // permite volver a elegir el mismo archivo
+    if (!file) return;
+    if (!TIPOS_FOTO.includes(file.type)) {
+      setFotoError(
+        "Ese archivo no es una imagen válida. Usa una foto JPG, PNG o WebP.",
+      );
+      return;
+    }
+    if (file.size > MAX_FOTO_MB * 1024 * 1024) {
+      setFotoError(
+        `La imagen pesa más de ${MAX_FOTO_MB} MB. Elige una más liviana.`,
+      );
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    urlsCreadas.current.push(url);
+    if (foto) URL.revokeObjectURL(foto.url);
+    setFoto({ file, url });
+    setFotoError("");
+  }
+
+  function quitarFoto() {
+    setFotoError("");
+    if (foto) descartarFoto();
+    else if (esFoto(form.avatar)) change("avatar", "avatar-1");
+    enfocar("perfil-subir-foto");
+  }
+
   function empezarEdicion() {
     if (!profile) return;
     setForm(desdePerfil(profile));
     setErrors({});
     setGeneral("");
     setSaved(false);
+    setFoto(null);
+    setFotoError("");
     setEditing(true);
     enfocar("perfil-nombres");
   }
 
   function cancelar() {
+    descartarFoto();
+    setFotoError("");
     setEditing(false);
     setErrors({});
     setGeneral("");
@@ -163,7 +226,8 @@ export default function Perfil() {
     }
     setSaving(true);
     try {
-      // TODO(integración): PUT /api/users/me
+      // TODO(integración): PUT /api/users/me para los datos y, si hay foto,
+      // POST multipart del archivo (foto.file) al endpoint de avatar; usar la URL que devuelva.
       await simularSolicitud(null);
       const colisiones: FieldErrors = {};
       if (form.username.trim().toLowerCase() === USERNAME_OCUPADO)
@@ -184,8 +248,9 @@ export default function Perfil() {
         apellidos: form.apellidos.trim(),
         username: form.username.trim(),
         email: form.correo.trim(),
-        avatar: form.avatar,
+        avatar: foto ? foto.url : form.avatar, // simulado: la URL local pasa a ser el avatar
       });
+      setFoto(null); // no se libera la URL: ahora es profile.avatar (se libera al salir de la página)
       setEditing(false);
       setSaved(true);
       enfocar("perfil-editar");
@@ -200,6 +265,9 @@ export default function Perfil() {
     event.preventDefault();
     void guardar();
   }
+
+  const fotoActual = esFoto(form.avatar) ? form.avatar : null;
+  const vistaPrevia = foto?.url ?? fotoActual;
 
   return (
     <section className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
@@ -283,6 +351,114 @@ export default function Perfil() {
                   {general && (
                     <StatusMessage type="error">{general}</StatusMessage>
                   )}
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <fieldset disabled={saving} className="min-w-0 space-y-4">
+                      <div className="gap-3">
+                        <legend className="text-sm font-medium text-slate-300">
+                          Avatar de perfil
+                        </legend>
+                        <p className="text-xs text-slate-400">
+                          Elige un Avatar predeterminado o sube tu propia foto.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {avatarOptions.map((avatar) => (
+                          <label
+                            key={avatar.id}
+                            className={`flex size-12 cursor-pointer items-center justify-center rounded-full border-2 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-blue-300 ${!foto && form.avatar === avatar.id ? "border-blue-300" : "border-transparent"}`}
+                          >
+                            <input
+                              className="sr-only"
+                              aria-label={`Avatar: ${avatar.label}`}
+                              type="radio"
+                              name="avatar"
+                              value={avatar.id}
+                              checked={!foto && form.avatar === avatar.id}
+                              onChange={() => elegirAvatar(avatar.id)}
+                            />
+                            <Avatar value={avatar.id} className="size-10" />
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+
+                    <div className="flex min-w-0 flex-col gap-3 border-t border-[#1c2b3c] pt-4 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
+                      <div className="flex flex-row items-start gap-3 sm:items-center">
+                        {vistaPrevia ? (
+                          <img
+                            src={vistaPrevia}
+                            alt=""
+                            className="size-14 shrink-0 rounded-full border-2 border-blue-300 object-cover"
+                          />
+                        ) : (
+                          <div
+                            aria-hidden="true"
+                            className="flex size-14 shrink-0 items-center justify-center rounded-full border border-dashed border-[#273647] text-slate-400"
+                          >
+                            <IconoCamara className="size-6" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              id="perfil-subir-foto"
+                              variant="secondary"
+                              onClick={() => inputFoto.current?.click()}
+                              aria-describedby="perfil-foto-ayuda"
+                              disabled={saving}
+                            >
+                              <IconoCamara className="size-4" />
+                              {vistaPrevia ? "Cambiar foto" : "Subir foto"}
+                            </Button>
+                            {vistaPrevia && (
+                              <Button
+                                variant="secondary"
+                                className="!border-red-400/60 !text-red-300 hover:!bg-red-500/10"
+                                onClick={quitarFoto}
+                                disabled={saving}
+                              >
+                                Quitar foto
+                              </Button>
+                            )}
+                          </div>
+                          <p
+                            id="perfil-foto-ayuda"
+                            className="text-xs text-slate-400"
+                          >
+                            Formato JPG, PNG o WebP. Máximo {MAX_FOTO_MB} MB.
+                          </p>
+                          {foto && (
+                            <p className="truncate text-xs text-emerald-300">
+                              Foto seleccionada: {foto.file.name}
+                            </p>
+                          )}
+                          {fotoError && (
+                            <p
+                              role="alert"
+                              className="text-xs font-medium text-red-300"
+                            >
+                              {fotoError}
+                            </p>
+                          )}
+                          <span role="status" className="sr-only">
+                            {foto ? `Foto seleccionada: ${foto.file.name}` : ""}
+                          </span>
+                        </div>
+                        <input
+                          ref={inputFoto}
+                          type="file"
+                          accept={TIPOS_FOTO.join(",")}
+                          className="hidden"
+                          tabIndex={-1}
+                          disabled={saving}
+                          onChange={elegirFoto}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid gap-4 sm:grid-cols-2">
                     <TextField
                       id="perfil-nombres"
@@ -303,31 +479,8 @@ export default function Perfil() {
                       disabled={saving}
                     />
                   </div>
-                  <div className="grid gap-4 sm:grid-cols-[11rem_1fr]">
-                    <fieldset disabled={saving}>
-                      <legend className="mb-2 text-sm font-medium text-slate-300">
-                        Elige un avatar
-                      </legend>
-                      <div className="flex flex-wrap gap-2">
-                        {avatarOptions.map((avatar) => (
-                          <label
-                            key={avatar.id}
-                            className={`flex size-12 cursor-pointer items-center justify-center rounded-full border-2 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-blue-300 ${form.avatar === avatar.id ? "border-blue-300" : "border-transparent"}`}
-                          >
-                            <input
-                              className="sr-only"
-                              aria-label={`Avatar: ${avatar.label}`}
-                              type="radio"
-                              name="avatar"
-                              value={avatar.id}
-                              checked={form.avatar === avatar.id}
-                              onChange={() => change("avatar", avatar.id)}
-                            />
-                            <Avatar value={avatar.id} className="size-10" />
-                          </label>
-                        ))}
-                      </div>
-                    </fieldset>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <TextField
                       id="perfil-username"
                       label="Nombre de usuario"
@@ -338,18 +491,19 @@ export default function Perfil() {
                       error={errors.username}
                       disabled={saving}
                     />
+                    <TextField
+                      id="perfil-correo"
+                      label="Correo electrónico"
+                      type="email"
+                      autoComplete="email"
+                      helpText="Se usa para invitaciones y recuperación de cuenta."
+                      value={form.correo}
+                      onChange={(e) => change("correo", e.target.value)}
+                      error={errors.correo}
+                      disabled={saving}
+                    />
                   </div>
-                  <TextField
-                    id="perfil-correo"
-                    label="Correo electrónico"
-                    type="email"
-                    autoComplete="email"
-                    helpText="Se usa para invitaciones y recuperación de cuenta."
-                    value={form.correo}
-                    onChange={(e) => change("correo", e.target.value)}
-                    error={errors.correo}
-                    disabled={saving}
-                  />
+
                   <div className="flex flex-col-reverse gap-2.5 border-t border-[#1c2b3c] pt-5 sm:flex-row sm:justify-end">
                     <Button
                       variant="secondary"
