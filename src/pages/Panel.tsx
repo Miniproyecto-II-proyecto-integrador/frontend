@@ -39,7 +39,6 @@ function Metrica({
           {valor}
         </span>
         <span className="text-xs text-slate-300">{etiqueta}</span>
-        {/* TODO(integración): dato real pendiente (US-08 / tiempo real) */}
         <span className="text-xs text-slate-400">Aún no disponible</span>
       </p>
     </div>
@@ -155,7 +154,6 @@ export default function Panel() {
         </div>
       </header>
 
-      {/* TODO(integración): valores reales cuando exista US-08 y la presencia en tiempo real */}
       <section aria-label="Resumen" className="mt-8 grid gap-4 md:grid-cols-2">
         <Metrica
           icono={<IconoCasa className="size-5 text-blue-400" />}

@@ -52,7 +52,7 @@ export default function Modal({
       onClick={(event) => {
         if (event.target === event.currentTarget && dismissible) onClose();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-md bg-transparent p-0 text-slate-200 backdrop:bg-black/70 backdrop:backdrop-blur-sm"
+      className="m-auto max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto bg-transparent p-0 text-slate-200 backdrop:bg-black/70 backdrop:backdrop-blur-sm"
     >
       {open && (
         <div

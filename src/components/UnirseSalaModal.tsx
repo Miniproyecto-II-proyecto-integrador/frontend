@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import Button from "./Button";
 import Modal from "./Modal";
 import Spinner from "./Spinner";
+import StatusMessage from "./StatusMessage";
 import TextField from "./TextField";
 
 type Props = {
@@ -20,6 +21,7 @@ export default function UnirseSalaModal({ open, onClose }: Props) {
   const [roomId, setRoomId] = useState("");
   const [error, setError] = useState("");
   const [connecting, setConnecting] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -36,9 +38,10 @@ export default function UnirseSalaModal({ open, onClose }: Props) {
   );
 
   function cerrar() {
-    if (connecting) return;
+    if (connecting || success) return;
     setError("");
     setRoomId("");
+    setSuccess(false);
     onClose();
   }
 
@@ -73,8 +76,11 @@ export default function UnirseSalaModal({ open, onClose }: Props) {
         socket.disconnect();
         socketRef.current = null;
         setConnecting(false);
-        onClose();
-        navigate(`/salas/${encodeURIComponent(joinedId)}`);
+        setSuccess(true);
+        window.setTimeout(() => {
+          onClose();
+          navigate(`/salas/${encodeURIComponent(joinedId)}`);
+        }, 700);
       });
 
       socket.once(
@@ -118,10 +124,12 @@ export default function UnirseSalaModal({ open, onClose }: Props) {
       description="Ingresa el ID compartido por el anfitrión."
     >
       <form onSubmit={unir} noValidate className="space-y-4">
+        {success && <StatusMessage type="success">Te uniste correctamente a la sala.</StatusMessage>}
         <TextField
           id="unirse-sala-id"
           label="ID de la sala"
           placeholder="Ej. ALGEBRA-2026"
+          helpText="Puedes pegar el ID con espacios; se eliminarán al inicio y al final."
           value={roomId}
           onChange={(event) => {
             setRoomId(event.target.value);
@@ -132,10 +140,10 @@ export default function UnirseSalaModal({ open, onClose }: Props) {
           autoComplete="off"
         />
         <div className="flex flex-col-reverse gap-2.5 border-t border-[#1c2b3c] pt-4 sm:flex-row sm:justify-end">
-          <Button variant="secondary" onClick={cerrar} disabled={connecting}>
+          <Button variant="secondary" onClick={cerrar} disabled={connecting || success}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={connecting}>
+          <Button type="submit" disabled={connecting || success}>
             {connecting && <Spinner />}
             {connecting ? "Ingresando…" : error ? "Reintentar" : "Unirse"}
           </Button>
