@@ -1,11 +1,740 @@
+import { useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
+import { io, type Socket } from "socket.io-client";
+import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
+import { ApiError } from "../auth/api";
+import {
+  deleteRoom,
+  getRoomMessages,
+  getRooms,
+  updateRoom,
+  type MensajeSala,
+  type SalaRespuesta,
+} from "../auth/rooms";
+import Avatar from "../components/Avatar";
+import Button from "../components/Button";
+import Modal from "../components/Modal";
+import Spinner from "../components/Spinner";
+import StatusMessage from "../components/StatusMessage";
+import TextField from "../components/TextField";
+
+type MensajeUI = MensajeSala & {
+  temporal?: boolean;
+  estado?: "enviando" | "fallido";
+};
+
+type Participante = {
+  uid: string;
+  displayName: string;
+  online: boolean;
+};
+
 export default function Sala() {
+  const { id = "" } = useParams();
+  const navigate = useNavigate();
+  const { user, getIdToken } = useAuth();
+
+  const socketRef = useRef<Socket | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
+  const nearBottomRef = useRef(true);
+
+  const [roomName, setRoomName] = useState("Sala de estudio");
+  const [owner, setOwner] = useState(false);
+  const [connection, setConnection] = useState<"conectando" | "conectado" | "reconectando" | "error">("conectando");
+  const [roomError, setRoomError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [participants, setParticipants] = useState<Participante[]>([]);
+  const [panel, setPanel] = useState<"chat" | "participantes" | null>("chat");
+  const [messages, setMessages] = useState<MensajeUI[]>([]);
+  const [historyState, setHistoryState] = useState<"cargando" | "listo" | "error">("cargando");
+  const [historyError, setHistoryError] = useState("");
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [olderError, setOlderError] = useState("");
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [newMessages, setNewMessages] = useState(false);
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editError, setEditError] = useState("");
+  const [savingRoom, setSavingRoom] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [deletingRoom, setDeletingRoom] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
+
+  useEffect(() => {
+    document.title = "Sala | Study Room";
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    getRooms()
+      .then((rooms: SalaRespuesta[]) => {
+        if (!active) return;
+        const owned = rooms.find((room) => room.id === id);
+        if (owned) {
+          setOwner(true);
+          setRoomName(owned.nombre);
+          setEditName(owned.nombre);
+        }
+      })
+      .catch(() => {
+        // El anfitrión se determina por la lista real; un fallo no concede permisos.
+        if (active) setOwner(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  function mergeUnique(existing: MensajeUI[], incoming: MensajeUI[]) {
+    const ids = new Set(existing.map((message) => message.id));
+    return [...existing, ...incoming.filter((message) => !ids.has(message.id))];
+  }
+
+  async function loadHistory() {
+    setHistoryState("cargando");
+    setHistoryError("");
+    try {
+      const result = await getRoomMessages(id, 50);
+      setMessages((current) =>
+        mergeUnique(result.messages, current.filter((message) => message.temporal)),
+      );
+      setNextCursor(result.nextCursor);
+      setHasMore(result.hasMore);
+      setHistoryState("listo");
+      window.requestAnimationFrame(() => {
+        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      });
+    } catch (error) {
+      setHistoryError(error instanceof ApiError ? error.detail.mensaje : "No pudimos recuperar el historial.");
+      setHistoryState("error");
+    }
+  }
+
+  useEffect(() => {
+    if (!id) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadHistory();
+    // El historial se recarga también al reconectar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+
+    async function connect() {
+      const realtimeUrl = import.meta.env.VITE_REALTIME_URL;
+      if (!realtimeUrl) {
+        setConnection("error");
+        setRoomError("El servicio de tiempo real no está configurado.");
+        return;
+      }
+      const token = await getIdToken();
+      if (!token) {
+        setConnection("error");
+        setRoomError("Tu sesión no es válida. Inicia sesión de nuevo.");
+        return;
+      }
+      if (!active) return;
+
+      socketRef.current?.disconnect();
+      const socket = io(realtimeUrl, {
+        auth: { token },
+        transports: ["websocket", "polling"],
+      });
+      socketRef.current = socket;
+
+      socket.on("connect", () => {
+        setConnection("conectado");
+        setRoomError("");
+        socket.emit("room:join", { roomId: id });
+      });
+
+      socket.on("disconnect", () => {
+        setConnection("reconectando");
+      });
+
+      socket.io.on("reconnect_attempt", () => setConnection("reconectando"));
+      socket.io.on("reconnect", () => {
+        setConnection("conectado");
+        socket.emit("room:join", { roomId: id });
+        void loadHistory();
+      });
+
+      socket.on("room:joined", (payload: { roomId: string; roomName: string; onlineUsers: { uid: string; displayName: string }[] }) => {
+        if (payload.roomId !== id) return;
+        setRoomName(payload.roomName);
+        setEditName((current) => current || payload.roomName);
+        setConnection("conectado");
+        setParticipants(payload.onlineUsers.map((participant) => ({ ...participant, online: true })));
+      });
+
+      socket.on("room:error", (payload: { roomId?: string; code: string; message: string }) => {
+        if (payload.roomId && payload.roomId !== id) return;
+        setMessages((current) =>
+          current.map((message) => message.estado === "enviando" ? { ...message, estado: "fallido" } : message),
+        );
+        setSending(false);
+        if (payload.code === "ROOM_NOT_FOUND") {
+          setConnection("error");
+          setRoomError("Sala no encontrada. Verifica el ID e inténtalo de nuevo.");
+        }
+      });
+
+      socket.on("room:deleted", (payload: { roomId: string }) => {
+        if (payload.roomId !== id) return;
+        socket.disconnect();
+        navigate("/panel", { replace: true, state: { roomDeleted: true } });
+      });
+
+      socket.on("message:new", (message: MensajeSala) => {
+        if (message.roomId !== id) return;
+        setMessages((current) => {
+          const persistedIndex = current.findIndex(
+            (item) => item.temporal && item.estado === "enviando" &&
+              item.senderUid === message.senderUid && item.content === message.content,
+          );
+          const reconciled = persistedIndex >= 0
+            ? current.map((item, index) => index === persistedIndex ? message : item)
+            : mergeUnique(current, [message]);
+          return reconciled;
+        });
+        setSending(false);
+        if (!nearBottomRef.current) setNewMessages(true);
+      });
+
+      socket.on("presence:update", (payload: { roomId: string; uid: string; displayName: string; status: "online" | "offline" }) => {
+        if (payload.roomId !== id) return;
+        setParticipants((current) => {
+          if (payload.status === "online") {
+            const exists = current.some((participant) => participant.uid === payload.uid);
+            return exists
+              ? current.map((participant) => participant.uid === payload.uid ? { ...participant, displayName: payload.displayName, online: true } : participant)
+              : [...current, { uid: payload.uid, displayName: payload.displayName, online: true }];
+          }
+          return current.filter((participant) => participant.uid !== payload.uid);
+        });
+      });
+
+      socket.on("connect_error", () => {
+        setConnection("reconectando");
+      });
+    }
+
+    void connect();
+    return () => {
+      active = false;
+      const socket = socketRef.current;
+      if (socket) {
+        if (socket.connected) socket.emit("room:leave", { roomId: id });
+        socket.removeAllListeners();
+        socket.disconnect();
+      }
+      socketRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+    if (nearBottomRef.current && messages.length) {
+      window.requestAnimationFrame(() => {
+        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      });
+      setNewMessages(false);
+    }
+  }, [messages.length]);
+
+  async function loadOlder() {
+    if (!nextCursor || loadingOlder) return;
+    setLoadingOlder(true);
+    setOlderError("");
+    const container = scrollRef.current;
+    const oldHeight = container?.scrollHeight ?? 0;
+    try {
+      const result = await getRoomMessages(id, 50, nextCursor);
+      setMessages((current) => mergeUnique(result.messages, current));
+      setNextCursor(result.nextCursor);
+      setHasMore(result.hasMore);
+      window.requestAnimationFrame(() => {
+        if (container) container.scrollTop = container.scrollHeight - oldHeight;
+      });
+    } catch (error) {
+      setOlderError(error instanceof ApiError ? error.detail.mensaje : "No pudimos cargar mensajes anteriores.");
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
+
+  function sendMessage(event: FormEvent) {
+    event.preventDefault();
+    const content = draft.trim();
+    if (!content || connection !== "conectado" || sending) return;
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+
+    const temporal: MensajeUI = {
+      id: `temporal-${crypto.randomUUID()}`,
+      roomId: id,
+      senderUid: user?.uid ?? null,
+      senderName: user?.displayName || user?.email?.split("@")[0] || "Tú",
+      content,
+      createdAt: new Date().toISOString(),
+      temporal: true,
+      estado: "enviando",
+    };
+    setMessages((current) => [...current, temporal]);
+    setDraft("");
+    setSending(true);
+    socket.emit("message:send", { roomId: id, content });
+  }
+
+  function retryMessage(message: MensajeUI) {
+    if (connection !== "conectado" || sending) return;
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+    setMessages((current) =>
+      current.map((item) => item.id === message.id ? { ...item, estado: "enviando" } : item),
+    );
+    setSending(true);
+    socket.emit("message:send", { roomId: id, content: message.content });
+  }
+
+  function scrollToLatest() {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    nearBottomRef.current = true;
+    setNewMessages(false);
+  }
+
+  function handleScroll() {
+    const container = scrollRef.current;
+    if (!container) return;
+    const distance = container.scrollHeight - container.scrollTop - container.clientHeight;
+    nearBottomRef.current = distance < 120;
+    if (nearBottomRef.current) setNewMessages(false);
+  }
+
+  async function saveRoom(event: FormEvent) {
+    event.preventDefault();
+    const limpio = editName.trim();
+    setEditError("");
+    if (!limpio) {
+      setEditError("Escribe un nombre para la sala.");
+      return;
+    }
+    if (limpio.length > 50) {
+      setEditError("El nombre no puede superar 50 caracteres.");
+      return;
+    }
+    setSavingRoom(true);
+    try {
+      const updated = await updateRoom(id, limpio);
+      setRoomName(updated.nombre);
+      setEditName(updated.nombre);
+      setEditOpen(false);
+      setSuccess("Nombre de la sala actualizado.");
+    } catch (error) {
+      setEditError(
+        error instanceof ApiError
+          ? error.detail.campos?.nombre ?? error.detail.mensaje
+          : "No pudimos guardar los cambios.",
+      );
+    } finally {
+      setSavingRoom(false);
+    }
+  }
+
+  async function confirmDeleteRoom() {
+    setDeletingRoom(true);
+    setDeleteError("");
+    try {
+      await deleteRoom(id);
+      navigate("/panel", { replace: true, state: { roomDeleted: true, deletedByOwner: true } });
+    } catch (error) {
+      setDeleteError(
+        error instanceof ApiError
+          ? error.detail.mensaje
+          : "No pudimos eliminar la sala.",
+      );
+      setDeletingRoom(false);
+    }
+  }
+
+  async function copyRoomId() {
+    try {
+      await navigator.clipboard.writeText(id);
+      setSuccess("ID de la sala copiado.");
+    } catch {
+      setSuccess("No se pudo copiar automáticamente. Selecciona el ID manualmente.");
+    }
+  }
+
+  function leaveRoom() {
+    const socket = socketRef.current;
+    if (socket?.connected) socket.emit("room:leave", { roomId: id });
+    socket?.disconnect();
+    navigate("/panel", { replace: true });
+  }
+
+  const ownMessage = (message: MensajeUI) =>
+    Boolean(user?.uid && message.senderUid === user.uid);
+
+  const formatTime = (value: string) =>
+    new Intl.DateTimeFormat("es-CO", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(value));
+
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Sala</h1>
-      <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-        Espacio de comunicación con mensajes, participantes, audio y video.
-      </p>
-    </div>
+    <section className="min-h-[calc(100vh-69px)] w-full bg-[#07111f]">
+      <header className="border-b border-[#1c2b3c] bg-[#0b1627] px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <Button
+              variant="secondary"
+              className="shrink-0 !px-3"
+              onClick={() => setLeaveOpen(true)}
+            >
+              ← <span className="hidden sm:inline">Volver</span>
+            </Button>
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-bold text-white sm:text-xl">
+                {roomName}
+              </h1>
+              <p className="truncate font-mono text-[11px] text-slate-400">
+                ID: {id}
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {owner && (
+              <>
+                <Button
+                  variant="secondary"
+                  className="hidden sm:inline-flex"
+                  onClick={() => setEditOpen(true)}
+                >
+                  Editar sala
+                </Button>
+                <Button
+                  className="hidden !bg-red-600 hover:!bg-red-700 sm:inline-flex"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  Eliminar sala
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {success && (
+        <div className="mx-auto max-w-[1600px] px-4 pt-3">
+          <StatusMessage type="success">{success}</StatusMessage>
+        </div>
+      )}
+
+      {roomError && (
+        <div className="mx-auto max-w-[1600px] px-4 pt-3">
+          <StatusMessage type="error">{roomError}</StatusMessage>
+          {connection === "error" && (
+            <div className="mt-3 flex gap-2">
+              <Button onClick={() => window.location.reload()} variant="secondary">
+                Reintentar
+              </Button>
+              <Button onClick={() => navigate("/panel", { replace: true })}>
+                Volver al panel
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="mx-auto flex h-[calc(100vh-130px)] max-w-[1600px] gap-3 p-3 sm:h-[calc(100vh-145px)] sm:p-4">
+        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#1c2b3c] bg-[#0d1c2d]">
+          <div className="flex h-12 items-center justify-between border-b border-[#1c2b3c] px-4">
+            <div className="flex items-center gap-2 text-xs text-slate-300">
+              <span
+                className={`size-2 rounded-full ${
+                  connection === "conectado"
+                    ? "bg-emerald-400"
+                    : connection === "reconectando"
+                      ? "bg-amber-400"
+                      : "bg-red-400"
+                }`}
+              />
+              {connection === "conectado"
+                ? "Conectado"
+                : connection === "reconectando"
+                  ? "Reconectando…"
+                  : "Sin conexión"}
+            </div>
+            <span className="text-xs text-slate-400">
+              {participants.length} participante{participants.length === 1 ? "" : "s"}
+            </span>
+          </div>
+
+          {historyState === "cargando" ? (
+            <div role="status" className="flex flex-1 items-center justify-center gap-3 text-sm text-slate-300">
+              <Spinner /> Cargando historial…
+            </div>
+          ) : (
+            <div
+              ref={scrollRef}
+              onScroll={handleScroll}
+              className="relative flex-1 overflow-y-auto px-3 py-4 sm:px-5"
+            >
+              <div className="mx-auto max-w-3xl">
+                {hasMore && (
+                  <div className="mb-4 text-center">
+                    {olderError && <p role="alert" className="mb-2 text-sm text-red-400">{olderError}</p>}
+                    <Button variant="secondary" onClick={() => void loadOlder()} disabled={loadingOlder}>
+                      {loadingOlder && <Spinner />}
+                      {loadingOlder ? "Cargando…" : olderError ? "Reintentar carga anterior" : "Cargar mensajes anteriores"}
+                    </Button>
+                  </div>
+                )}
+
+                {historyState === "error" && (
+                  <div className="mb-4 rounded-lg border border-red-500/20 p-4 text-center">
+                    <p role="alert" className="text-sm text-red-300">{historyError}</p>
+                    <Button variant="secondary" className="mt-3" onClick={() => void loadHistory()}>
+                      Reintentar
+                    </Button>
+                  </div>
+                )}
+
+                {messages.length === 0 && historyState === "listo" ? (
+                  <div className="flex h-64 flex-col items-center justify-center text-center">
+                    <div className="flex size-12 items-center justify-center rounded-full bg-blue-500/10 text-blue-300">💬</div>
+                    <h2 className="mt-3 font-semibold text-white">Aún no hay mensajes</h2>
+                    <p className="mt-1 text-sm text-slate-400">Sé la primera persona en iniciar la conversación.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {messages.map((message) => {
+                      const own = ownMessage(message);
+                      return (
+                        <article
+                          key={message.id}
+                          className={`flex ${own ? "justify-end" : "justify-start"}`}
+                          aria-label={`Mensaje de ${message.senderName || "usuario"}`}
+                        >
+                          <div className={`max-w-[82%] rounded-lg px-3 py-2 sm:max-w-[70%] ${own ? "bg-[#2563eb] text-white" : "border border-[#1c2b3c] bg-[#111c2f] text-slate-100"}`}>
+                            <div className="mb-1 flex items-center gap-2 text-[11px]">
+                              <span className="font-semibold">{own ? "Tú" : message.senderName || "Usuario eliminado"}</span>
+                              <time className={own ? "text-blue-100" : "text-slate-400"} dateTime={message.createdAt}>
+                                {formatTime(message.createdAt)}
+                              </time>
+                            </div>
+                            <p className="break-words whitespace-pre-wrap text-sm">{message.content}</p>
+                            {message.estado === "enviando" && <p className="mt-1 text-[11px] text-blue-100">Enviando…</p>}
+                            {message.estado === "fallido" && (
+                              <div className="mt-1 flex items-center gap-2 text-[11px]">
+                                <span>No enviado</span>
+                                <button type="button" className="underline" onClick={() => retryMessage(message)}>
+                                  Reintentar
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {newMessages && (
+            <button
+              type="button"
+              onClick={scrollToLatest}
+              className="absolute bottom-20 left-1/2 -translate-x-1/2 rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300"
+            >
+              Mensajes nuevos
+            </button>
+          )}
+
+          <form onSubmit={sendMessage} className="border-t border-[#1c2b3c] p-3" aria-label="Enviar mensaje">
+            <label htmlFor="mensaje-sala" className="sr-only">Escribe un mensaje</label>
+            <div className="mx-auto flex max-w-3xl gap-2">
+              <input
+                id="mensaje-sala"
+                ref={chatInputRef}
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                placeholder="Escribe un mensaje"
+                disabled={connection !== "conectado"}
+                maxLength={2000}
+                className="min-w-0 flex-1 rounded-md border border-[#344458] bg-[#03111f] px-3.5 py-3 text-sm text-white placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 disabled:opacity-60"
+              />
+              <Button type="submit" disabled={connection !== "conectado" || !draft.trim() || sending}>
+                {sending && <Spinner />}
+                Enviar
+              </Button>
+            </div>
+          </form>
+        </main>
+
+        {panel && (
+          <aside className="fixed bottom-16 right-3 top-16 z-30 flex w-[calc(100%-1.5rem)] max-w-sm flex-col rounded-lg border border-[#1c2b3c] bg-[#0d1c2d] shadow-2xl md:static md:z-auto md:flex md:w-80 md:max-w-none md:shadow-none">
+            <div className="flex border-b border-[#1c2b3c]">
+              <button
+                type="button"
+                onClick={() => setPanel("chat")}
+                className={`flex-1 px-3 py-3 text-sm font-semibold ${panel === "chat" ? "border-b-2 border-blue-400 text-white" : "text-slate-400"}`}
+              >
+                Chat
+              </button>
+              <button
+                type="button"
+                onClick={() => setPanel("participantes")}
+                className={`flex-1 px-3 py-3 text-sm font-semibold ${panel === "participantes" ? "border-b-2 border-blue-400 text-white" : "text-slate-400"}`}
+              >
+                Participantes ({participants.length})
+              </button>
+            </div>
+            {panel === "chat" ? (
+              <div className="p-4 text-sm text-slate-300">
+                <p>Conversación activa</p>
+              </div>
+            ) : (
+              <div className="overflow-y-auto p-3">
+                {participants.length === 0 ? (
+                  <div className="flex h-48 flex-col items-center justify-center text-center">
+                    <div className="text-3xl">◎</div>
+                    <p className="mt-3 font-semibold text-white">No hay otros participantes</p>
+                    <p className="mt-1 text-xs text-slate-400">Comparte el ID de la sala para invitar compañeros.</p>
+                    <Button className="mt-4" variant="secondary" onClick={() => void copyRoomId()}>
+                      Copiar ID de invitación
+                    </Button>
+                  </div>
+                ) : (
+                  <ul className="space-y-2">
+                    {participants.map((participant) => (
+                      <li key={participant.uid} className="flex items-center gap-3 rounded-md border border-[#1c2b3c] bg-[#111c2f] p-3">
+                        <Avatar value="avatar-1" className="size-9" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-white">
+                            {participant.displayName || "Usuario"}
+                            {participant.uid === user?.uid ? " (Tú)" : ""}
+                          </p>
+                          {owner && participant.uid === user?.uid && (
+                            <p className="text-[11px] text-blue-300">Anfitrión</p>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </aside>
+        )}
+      </div>
+
+      <nav className="fixed bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-[#1c2b3c] bg-[#0d1c2d] p-2 shadow-xl md:left-auto md:right-4 md:translate-x-0">
+        <button type="button" disabled title="Próximamente" className="rounded-md px-3 py-2 text-xs text-slate-500">Micrófono</button>
+        <button type="button" disabled title="Próximamente" className="rounded-md px-3 py-2 text-xs text-slate-500">Cámara</button>
+        <button type="button" disabled title="Próximamente" className="rounded-md px-3 py-2 text-xs text-slate-500">Compartir pantalla</button>
+        <button
+          type="button"
+          onClick={() => setPanel(panel === "chat" ? null : "chat")}
+          className={`rounded-md px-3 py-2 text-xs font-semibold ${panel === "chat" ? "bg-blue-600 text-white" : "text-slate-300"}`}
+        >
+          Chat
+        </button>
+        <button
+          type="button"
+          onClick={() => setPanel(panel === "participantes" ? null : "participantes")}
+          className={`rounded-md px-3 py-2 text-xs font-semibold ${panel === "participantes" ? "bg-blue-600 text-white" : "text-slate-300"}`}
+        >
+          Participantes
+        </button>
+      </nav>
+
+      {owner && (
+        <>
+          <Modal
+            open={editOpen}
+            onClose={() => !savingRoom && setEditOpen(false)}
+            dismissible={!savingRoom}
+            title="Editar sala"
+            description="Actualiza el nombre de tu sala de estudio."
+          >
+            <form onSubmit={saveRoom} noValidate className="space-y-4">
+              {editError && <StatusMessage type="error">{editError}</StatusMessage>}
+              <TextField
+                id="editar-sala-nombre"
+                label="Nombre de la sala"
+                value={editName}
+                maxLength={50}
+                onChange={(event) => {
+                  setEditName(event.target.value);
+                  setEditError("");
+                }}
+                error={editError && !editName.trim() ? editError : undefined}
+                disabled={savingRoom}
+                helpText={`Máximo 50 caracteres (${editName.trim().length}/50).`}
+              />
+              <div className="flex flex-col-reverse gap-2.5 border-t border-[#1c2b3c] pt-4 sm:flex-row sm:justify-end">
+                <Button variant="secondary" onClick={() => setEditOpen(false)} disabled={savingRoom}>Cancelar</Button>
+                <Button type="submit" disabled={savingRoom}>
+                  {savingRoom && <Spinner />}
+                  {savingRoom ? "Guardando…" : editError ? "Reintentar" : "Guardar cambios"}
+                </Button>
+              </div>
+            </form>
+          </Modal>
+
+          <Modal
+            open={deleteOpen}
+            onClose={() => !deletingRoom && setDeleteOpen(false)}
+            dismissible={!deletingRoom}
+            tone="danger"
+            title="¿Eliminar sala?"
+            description="Esta acción es permanente e irreversible."
+          >
+            {deleteError && <StatusMessage type="error">{deleteError}</StatusMessage>}
+            <p className="text-sm text-slate-300">
+              Esta acción eliminará la sala y redirigirá a todos los participantes conectados al panel.
+            </p>
+            <div className="flex flex-col-reverse gap-2.5 border-t border-[#1c2b3c] pt-4 sm:flex-row sm:justify-end">
+              <Button variant="secondary" onClick={() => setDeleteOpen(false)} disabled={deletingRoom}>Cancelar</Button>
+              <Button className="!bg-red-600 hover:!bg-red-700" onClick={() => void confirmDeleteRoom()} disabled={deletingRoom}>
+                {deletingRoom && <Spinner />}
+                {deletingRoom ? "Eliminando…" : deleteError ? "Reintentar" : "Eliminar sala"}
+              </Button>
+            </div>
+          </Modal>
+        </>
+      )}
+
+      <Modal
+        open={leaveOpen}
+        onClose={() => setLeaveOpen(false)}
+        tone="danger"
+        title="¿Salir de la sala?"
+        description="Confirmación de desconexión"
+      >
+        <p className="text-sm text-slate-300">
+          Si sales de la sala, se desconectará tu cámara y tu micrófono en tiempo real y tendrás que volver a ingresar con el código.
+        </p>
+        <div className="flex flex-col-reverse gap-2.5 border-t border-[#1c2b3c] pt-4 sm:flex-row sm:justify-end">
+          <Button variant="secondary" onClick={() => setLeaveOpen(false)}>Permanecer en la sala</Button>
+          <Button className="!bg-red-600 hover:!bg-red-700" onClick={leaveRoom}>Confirmar salida</Button>
+        </div>
+      </Modal>
+    </section>
   );
 }
 
