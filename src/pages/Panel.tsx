@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import { getRooms } from "../auth/rooms";
 import { getProfile } from "../auth/users";
 import Button from "../components/Button";
 import CrearSalaModal from "../components/CrearSalaModal";
+import UnirseSalaModal from "../components/UnirseSalaModal";
 import {
   IconoCasa,
   IconoEntrar,
@@ -45,13 +47,23 @@ function Metrica({
 }
 
 export default function Panel() {
+  const location = useLocation();
   const [username, setUsername] = useState("");
   const [salas, setSalas] = useState<Sala[]>([]);
   const [estado, setEstado] = useState<Estado>("cargando");
   const [intento, setIntento] = useState(0);
   const [crearAbierto, setCrearAbierto] = useState(false);
+  const [unirseAbierto, setUnirseAbierto] = useState(false);
   const [aviso, setAviso] = useState("");
   const temporizador = useRef<number | undefined>(undefined);
+  const state = location.state as
+    | { roomDeleted?: boolean; deletedByOwner?: boolean }
+    | null;
+  const deletionNotice = state?.roomDeleted
+    ? state.deletedByOwner
+      ? "La sala se eliminó correctamente."
+      : "La sala fue eliminada por su anfitrión."
+    : "";
 
   useEffect(() => {
     document.title = "Panel | Study Room";
@@ -116,6 +128,14 @@ export default function Panel() {
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+      {deletionNotice && (
+        <p
+          role="status"
+          className="mb-5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300"
+        >
+          {deletionNotice}
+        </p>
+      )}
       <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-medium text-slate-300">
@@ -126,8 +146,7 @@ export default function Panel() {
           </h1>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          {/* TODO(US-08): conectar con el modal de unirse a una sala */}
-          <Button type="button" variant="secondary">
+          <Button type="button" variant="secondary" onClick={() => setUnirseAbierto(true)}>
             <IconoEntrar className="size-4 text-slate-400" /> Unirse a una sala
           </Button>
           <Button onClick={() => setCrearAbierto(true)}>
@@ -259,8 +278,7 @@ export default function Panel() {
               </p>
             </div>
           </div>
-          {/* TODO(US-08): conectar con el modal de unirse a una sala */}
-          <Button type="button" variant="secondary" className="shrink-0">
+          <Button type="button" variant="secondary" className="shrink-0" onClick={() => setUnirseAbierto(true)}>
             <IconoEntrar className="size-4 text-slate-400" /> Ingresar ID
           </Button>
         </section>
@@ -271,6 +289,7 @@ export default function Panel() {
         onClose={() => setCrearAbierto(false)}
         onCreated={() => setIntento((n) => n + 1)}
       />
+      <UnirseSalaModal open={unirseAbierto} onClose={() => setUnirseAbierto(false)} />
 
       {/* Región viva persistente: anuncia "ID copiado" al lector de pantalla sin mover el foco */}
       <div
